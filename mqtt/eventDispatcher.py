@@ -1,12 +1,10 @@
 """Receive sensor messages from MQTT topics."""
 
-from typing import Callable
-from .client import *
-from .topics import SensorTopics
+from typing import Any
 from dataclasses import dataclass
 import queue
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class MQTTEvent:
     """Represent an event received from an MQTT topic."""
     topic: str
@@ -16,19 +14,16 @@ class MQTTEvent:
 class MQTTEventDispatcher:
     """Handler for processing events from MQTT topics"""
     def __init__(self):
-        self.queue = queue.Queue()
+        self.__queue:  queue.Queue[MQTTEvent] = queue.Queue()
     
-    def dispatch(self, topic: str, payload: dict[str, Any]):
+    def push_event(self, topic: str, payload: dict[str, Any]):
         """
         Dispatch an event to the callback function.
         It's the callback function of the MQTT client that will call this method when a message is received.
         """
         event = MQTTEvent(topic, payload)
-        self.queue.put(event)
+        self.__queue.put(event)
 
-    def run(self):
-        """Start the event handler loop."""
-        while True:
-            if not self.queue.empty():
-                event = self.queue.get()
-                self.callback(event)
+    def get_event(self) -> MQTTEvent: 
+        """Get the next event from the queue."""
+        return self.__queue.get()
