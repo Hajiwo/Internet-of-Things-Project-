@@ -1,37 +1,40 @@
-"""Thin wrapper around paho-mqtt."""
-
-from dataclasses import dataclass
-from typing import Callable
-
 import paho.mqtt.client as mqtt
+import json
+from config.settings import settings
+from typing import Any, Callable
 
+MQTTCallback = Callable[[str, dict[str, Any]], None]
+"""
+A callback function for handling incoming MQTT messages.
+para: topic, payload
+"""
 
-@dataclass
 class MQTTClient:
-    """Encapsulate MQTT client setup and lifecycle."""
+    """MQTT client for communication"""
 
-    host: str
-    port: int
-    username: str = ""
-    password: str = ""
-
-    def __post_init__(self) -> None:
+    def __init__(self):
         self.client = mqtt.Client()
-        if self.username:
-            self.client.username_pw_set(self.username, self.password)
 
-    def connect(self) -> None:
-        self.client.connect(self.host, self.port)
+        self.host = settings.mqtt_broker_addr
+        self.port = settings.mqtt_broker_port
+        self.keep_alive = settings.keep_alive
 
-    def publish(self, topic: str, payload: str, qos: int = 0, retain: bool = False) -> None:
-        self.client.publish(topic, payload, qos=qos, retain=retain)
-
-    def subscribe(self, topic: str, callback: Callable) -> None:
-        self.client.subscribe(topic)
-        self.client.message_callback_add(topic, callback)
-
-    def loop_start(self) -> None:
+    def connect(self):
+        self.client.connect(self.host, self.port, self.keep_alive)
         self.client.loop_start()
 
-    def loop_stop(self) -> None:
+    def disconnect(self):
         self.client.loop_stop()
+        self.client.disconnect()
+
+    def publish(self, topic: str, payload: dict[str, Any]):
+        self.client.publish(topic, json.dumps(payload), qos=1)
+    
+    def subscribe(self, topic: str, callback: MQTTCallback):
+        
+        def on_message(client, userdata, msg):
+            payload = json.loads(msg.payload.decode("utf-8"))
+            callback(msg.topic, payload)
+
+        self.client.subscribe(topic, qos=1)
+        self.client.message_callback_add(topic, on_message)
