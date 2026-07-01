@@ -1,15 +1,8 @@
 """Receive sensor messages from MQTT topics."""
 
 from typing import Any
-from dataclasses import dataclass
+from ..models.event import MQTTEvent
 import queue
-
-@dataclass(slots=True, frozen=True)
-class MQTTEvent:
-    """Represent an event received from an MQTT topic."""
-    topic: str
-    payload: dict[str, Any]
-
 
 class MQTTEventDispatcher:
     """Handler for processing events from MQTT topics"""
