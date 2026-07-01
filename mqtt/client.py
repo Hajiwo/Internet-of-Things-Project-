@@ -13,7 +13,7 @@ class MQTTClient:
     """MQTT client for communication"""
 
     def __init__(self):
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(settings.backend_client_id)
 
         self.host = settings.mqtt_broker_addr
         self.port = settings.mqtt_broker_port
@@ -38,3 +38,11 @@ class MQTTClient:
 
         self.client.subscribe(topic, qos=1)
         self.client.message_callback_add(topic, on_message)
+    
+    def run(self):
+        self.connect()
+        try:
+            while True:
+                pass  
+        except KeyboardInterrupt:
+            self.disconnect()

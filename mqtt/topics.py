@@ -11,7 +11,14 @@ class SensorTopics:
     PARKING = "garage/sensor/parking"
     LICENSE = "garage/sensor/license"
 
-sensorTopic = SensorTopics()
+    def get_topics(self) -> list[str]:
+        """Return a list of all sensor topics."""
+        return [
+            self.SENSOR_TEMPERATURE,
+            self.SENSOR_LIGHT,
+            self.PARKING,
+            self.LICENSE,
+        ]
 
 class ActuatorTopics:
     """MQTT topics for actuators"""
