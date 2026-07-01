@@ -12,7 +12,10 @@ def main() -> None:
     sensor_topics = SensorTopics()
     sensor_topics_list = sensor_topics.get_topics()
     for sensor_topic in sensor_topics_list:
-        mqtt_client.subscribe(sensor_topic, event_dispatcher.dispatch)
+        mqtt_client.subscribe(sensor_topic, event_dispatcher.push_event)
+    while True:
+        event = event_dispatcher.get_event()
+        #Process(event)
 
 
 
