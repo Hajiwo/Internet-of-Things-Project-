@@ -16,9 +16,12 @@ class Settings:
     keep_alive: int = 60
 
     # Sensor topics
-    SENSOR_TEMPERATURE = "garage/sensor/temperature"
-    SENSOR_LIGHT = "garage/sensor/light"
-    PARKING = "garage/sensor/parking"
-    LICENSE = "garage/sensor/license"
+    SENSOR_TEMPERATURE: str = "garage/sensor/temperature"
+    SENSOR_LIGHT: str = "garage/sensor/light"
+    PARKING: str = "garage/sensor/parking"
+    LICENSE: str = "garage/sensor/license"
+    BILLING: str = "garage/sensor/billing"
+
+    parking_positions: int = 4
 
 settings = Settings()
