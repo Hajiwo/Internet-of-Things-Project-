@@ -19,8 +19,8 @@ class Settings:
     SENSOR_TEMPERATURE: str = "garage/sensor/temperature"
     SENSOR_LIGHT: str = "garage/sensor/light"
     PARKING: str = "garage/sensor/parking"
-    LICENSE: str = "garage/sensor/license"
-    BILLING: str = "garage/sensor/billing"
+    VEHICLE_ENTRY: str = "garage/camera/vehicle_entry"
+    VEHICLE_LEAVE: str = "garage/camera/vehicle_exit"
 
     parking_positions: int = 4
 

@@ -11,7 +11,8 @@ class SensorTopics:
         self.SENSOR_TEMPERATURE = settings.SENSOR_TEMPERATURE
         self.SENSOR_LIGHT = settings.SENSOR_LIGHT
         self.PARKING = settings.PARKING
-        self.LICENSE = settings.LICENSE
+        self.VEHICLE_ENTRY = settings.VEHICLE_ENTRY
+        self.VEHICLE_LEAVE = settings.VEHICLE__LEAVE
 
     def get_topics(self) -> list[str]:
         """Return a list of all sensor topics."""
@@ -19,7 +20,8 @@ class SensorTopics:
             self.SENSOR_TEMPERATURE,
             self.SENSOR_LIGHT,
             self.PARKING,
-            self.LICENSE,
+            self.VEHICLE_ENTRY,
+            self.VEHICLE_LEAVE,
         ]
 
 class ActuatorTopics:
