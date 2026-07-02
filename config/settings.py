@@ -22,6 +22,6 @@ class Settings:
     VEHICLE_ENTRY: str = "garage/camera/vehicle_entry"
     VEHICLE_LEAVE: str = "garage/camera/vehicle_exit"
 
-    parking_positions: int = 4
+    parking_size: int = 4
 
 settings = Settings()
