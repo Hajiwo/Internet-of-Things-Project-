@@ -13,7 +13,7 @@ class MQTTClient:
     """MQTT client for communication"""
 
     def __init__(self):
-        self.client = mqtt.Client(settings.backend_client_id)
+        self.client = mqtt.Client(client_id=settings.backend_client_id)
 
         self.host = settings.mqtt_broker_addr
         self.port = settings.mqtt_broker_port

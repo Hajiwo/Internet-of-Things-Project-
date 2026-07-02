@@ -1,9 +1,6 @@
-"""
-MQTT topics used by the backend
-"""
+"""MQTT topics used by the backend."""
 
-from dataclasses import dataclass
-from ..config.settings import settings
+from config.settings import settings
 
 class SensorTopics:
     """MQTT topics for garage sensors."""
@@ -12,7 +9,7 @@ class SensorTopics:
         self.SENSOR_LIGHT = settings.SENSOR_LIGHT
         self.PARKING = settings.PARKING
         self.VEHICLE_ENTRY = settings.VEHICLE_ENTRY
-        self.VEHICLE_LEAVE = settings.VEHICLE__LEAVE
+        self.VEHICLE_LEAVE = settings.VEHICLE_LEAVE
 
     def get_topics(self) -> list[str]:
         """Return a list of all sensor topics."""

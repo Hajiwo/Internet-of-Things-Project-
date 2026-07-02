@@ -1,7 +1,8 @@
 """Garage state context."""
 
-from dataclasses import dataclass
-from ..config.settings import settings
+from dataclasses import dataclass, field
+
+from config.settings import settings
 
 @dataclass(slots=True)
 class Context:
@@ -9,8 +10,8 @@ class Context:
     #From sensors:
     temperature: float | None = None
     lux: float | None = None
-    positions_occupied: list[bool] = [False] *  settings.parking_size
-    current_vehicles: dict[str, str] = {}
+    positions_occupied: list[bool] = field(default_factory=lambda: [False] * settings.parking_size)
+    current_vehicles: dict[str, str] = field(default_factory=dict)
 
     #For Actuators:
     fan: bool = False

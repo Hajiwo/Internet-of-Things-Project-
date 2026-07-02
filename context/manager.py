@@ -1,14 +1,14 @@
 """Update garage context from MQTT messages."""
-from dataclasses import dataclass
-from .context import Context, VehicleInfo
-from ..config.settings import settings
-from ..models.event import MQTTEvent
+
+from context.context import Context
+from config.settings import settings
+from models.event import MQTTEvent
 
 class ContextManager:
     """Apply incoming sensor data to the current garage context."""
     def __init__(self, context: Context | None = None) -> None:
         self.context = context if context is not None else Context()
-        self.msg_sequences = dict[str, int] = {
+        self.msg_sequences: dict[str, int] = {
             settings.SENSOR_TEMPERATURE: 0,
             settings.SENSOR_LIGHT: 0,
             settings.PARKING: 0,
@@ -20,10 +20,10 @@ class ContextManager:
         """Handle event and filter out duplicates based on sequence number."""
         topic = event.topic
         payload = event.payload
-        sequnce_number = payload.get("sequence_number", 0)
+        sequence_number = payload.get("sequence_number", 0)
 
-        if sequnce_number > self.msg_sequences.get(topic, 0):
-            self.msg_sequences[topic] = sequnce_number
+        if sequence_number > self.msg_sequences.get(topic, 0):
+            self.msg_sequences[topic] = sequence_number
             if topic == settings.SENSOR_TEMPERATURE:
                 self.update_temperature(payload)
             elif topic == settings.SENSOR_LIGHT:

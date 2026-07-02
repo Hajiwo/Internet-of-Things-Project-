@@ -11,9 +11,7 @@ Every MQTT message follows the same format.
 ```json
 {
     "sequence": 1,
-    "data": {
-        ...
-    }
+    ...
 }
 ```
 
@@ -22,7 +20,7 @@ Every MQTT message follows the same format.
 | Field | Type | Description |
 |------|------|-------------|
 | sequence | int | Sequence number used to detect duplicated messages (QoS=1). |
-| data | object | Message-specific payload. |
+| other fields | object | Message-specific payload fields at the top level. |
 
 ---
 
@@ -39,9 +37,7 @@ garage/sensor/temperature
 ```json
 {
     "sequence": 15,
-    "data": {
-        "temperature": 28.5
-    }
+    "temperature": 28.5
 }
 ```
 
@@ -66,9 +62,7 @@ garage/sensor/light
 ```json
 {
     "sequence": 21,
-    "data": {
-        "lux": 320
-    }
+    "lux": 320
 }
 ```
 
@@ -95,10 +89,8 @@ garage/sensor/parking
 ```json
 {
     "sequence": 8,
-    "data": {
-        "position": 2,
-        "on_occupy": "true(occupy)"
-    }
+    "position": 2,
+    "on_occupy": "true(occupy)"
 }
 ```
 
@@ -107,10 +99,8 @@ garage/sensor/parking
 ```json
 {
     "sequence": 9,
-    "data": {
-        "position": 2,
-        "on_occupy": "false(free)"
-    }
+    "position": 2,
+    "on_occupy": "false(free)"
 }
 ```
 
@@ -137,10 +127,8 @@ garage/camera/vehicle_enter
 ```json
 {
     "sequence": 30,
-    "data": {
-        "license": "BN9123",
-        "enter_time": "2026-07-02T15:30:20"
-    }
+    "license": "BN9123",
+    "enter_time": "2026-07-02T15:30:20"
 }
 ```
 
@@ -167,9 +155,7 @@ garage/camera/vehicle_exit
 ```json
 {
     "sequence": 31,
-    "data": {
-        "license": "BN9123"
-    }
+    "license": "BN9123"
 }
 ```
 
