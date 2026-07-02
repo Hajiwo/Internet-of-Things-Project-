@@ -3,32 +3,31 @@
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
-	sys.path.insert(0, str(PROJECT_ROOT))
+	 sys.path.insert(0, str(PROJECT_ROOT))
 
+from broker_simulator import BrokerSimulator
 from simulation_broker import SimulationBroker
 from simulation_publisher import SimulationPublisher
 
 
 def main() -> None:
-	broker = SimulationBroker()
-	publisher = SimulationPublisher()
+	broker = BrokerSimulator()
+	subscriber = SimulationBroker(broker)
+	publisher = SimulationPublisher(broker)
 
-	broker.start()
-	time.sleep(0.5)
+	subscriber.start()
 
 	try:
 		publisher.publish_demo_messages()
-		time.sleep(1.0)
 		print("\n[runner] final context snapshot:")
-		broker.context_manager.print_context()
+		subscriber.context_manager.print_context()
 	finally:
 		publisher.stop()
-		broker.stop()
+		subscriber.stop()
 
 
 if __name__ == "__main__":

@@ -15,22 +15,29 @@ from context.manager import ContextManager
 from models.event import MQTTEvent
 from mqtt.client import MQTTClient
 from mqtt.topics import SensorTopics
+from broker_simulator import BrokerSimulator
 
 
 class SimulationBroker:
     """Subscribe to garage topics, print messages, and update the context."""
 
-    def __init__(self) -> None:
+    def __init__(self, broker: BrokerSimulator) -> None:
+        self.broker = broker
         self.client = MQTTClient()
         self.topics = SensorTopics().get_topics()
         self.context_manager = ContextManager()
+
+        self.client.connect = lambda: None
+        self.client.disconnect = lambda: None
+        self.client.subscribe = self.broker.subscribe
+        self.client.publish = self.broker.publish
 
     def start(self) -> None:
         """Connect and subscribe to all sensor topics."""
         self.client.connect()
         for topic in self.topics:
             self.client.subscribe(topic, self._on_message)
-        print(f"[broker] connected to {settings.mqtt_broker_addr}:{settings.mqtt_broker_port}")
+        print(f"[broker] connected to {settings.mqtt_broker_addr}:{settings.mqtt_broker_port} (simulated)")
         print("[broker] subscribed topics:")
         for topic in self.topics:
             print(f"  - {topic}")
@@ -48,13 +55,14 @@ class SimulationBroker:
 
 
 def main() -> None:
-    broker = SimulationBroker()
-    broker.start()
+    broker = BrokerSimulator()
+    subscriber = SimulationBroker(broker)
+    subscriber.start()
     try:
         while True:
             pass
     except KeyboardInterrupt:
-        broker.stop()
+        subscriber.stop()
         print("[broker] stopped")
 
 

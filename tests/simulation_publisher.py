@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from broker_simulator import BrokerSimulator
 from mqtt.client import MQTTClient
 from mqtt.topics import SensorTopics
 
@@ -18,9 +19,14 @@ from mqtt.topics import SensorTopics
 class SimulationPublisher:
     """Publish a small sequence of sample messages for testing."""
 
-    def __init__(self) -> None:
+    def __init__(self, broker: BrokerSimulator) -> None:
+        self.broker = broker
         self.client = MQTTClient()
         self.topics = SensorTopics()
+
+        self.client.connect = lambda: None
+        self.client.disconnect = lambda: None
+        self.client.publish = self.broker.publish
 
     def start(self) -> None:
         self.client.connect()
@@ -52,7 +58,7 @@ class SimulationPublisher:
 
 
 def main() -> None:
-    publisher = SimulationPublisher()
+    publisher = SimulationPublisher(BrokerSimulator())
     try:
         publisher.publish_demo_messages()
     finally:
