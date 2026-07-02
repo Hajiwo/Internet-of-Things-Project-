@@ -30,9 +30,11 @@ class ContextManager:
                 self.update_light(payload)
             elif topic == settings.PARKING:
                 self.update_parking(payload)    
-        elif topic == settings.VEHICLE_ENTRY:
-            self.update_vehicle_entry(payload)
-            
+            elif topic == settings.VEHICLE_ENTRY:
+                self.update_vehicle_entry(payload)
+            elif topic == settings.VEHICLE_LEAVE:
+                self.update_vehicle_leave(payload)
+
     def update_temperature(self, payload: dict) -> None:
         """Update temperature in context. """
         self.context.temperature = payload.get("temperature")
@@ -53,8 +55,16 @@ class ContextManager:
         license_plate = payload.get("license_plate")
         enter_time = payload.get("enter_time")
         if license_plate and enter_time:
-            vehicle_info = VehicleInfo(license_plate=license_plate, enter_time=enter_time)
-            self.context.current_vehicles.append(vehicle_info)
+            self.context.current_vehicles[license_plate] = enter_time
+
+    def update_vehicle_leave(self, payload: dict) -> None:
+        """update vehicle leave in context"""
+        license_plate = payload.get("license_plate")
+        if license_plate in self.context.current_vehicles:
+            del self.context.current_vehicles[license_plate]
+        else:
+            print(f"Warning: Vehicle with license plate {license_plate} not found in current vehicles.")
+            exit(1)  # Exit the program with an error code
 
     def print_context(self) -> None:
         """Print the current context for debugging."""
@@ -62,7 +72,7 @@ class ContextManager:
         print(f"Temperature: {self.context.temperature}")
         print(f"Lux: {self.context.lux}")
         print(f"Positions Occupied: {self.context.positions_occupied}")
-        print(f"Current Vehicles: {[v.license_plate for v in self.context.current_vehicles]}")
+        print(f"Current Vehicles: {list(self.context.current_vehicles.keys())}")
         print(f"Fan On: {self.context.fan}")
         print(f"Light On: {self.context.light}")
         print(f"Entrance Gate Open: {self.context.entrance_gate}")
