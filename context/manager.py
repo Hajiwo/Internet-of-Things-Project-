@@ -11,9 +11,9 @@ class ContextManager:
         self.msg_sequences: dict[str, int] = {
             settings.SENSOR_TEMPERATURE: 0,
             settings.SENSOR_LIGHT: 0,
-            settings.PARKING: 0,
-            settings.VEHICLE_ENTRY: 0,
-            settings.VEHICLE_LEAVE: 0,
+            settings.SENSOR_PARKING: 0,
+            settings.EVENT_VEHICLE_ENTRY: 0,
+            settings.EVENT_VEHICLE_LEAVE: 0,
         }
 
     def event_handler(self, event: MQTTEvent) -> None:
@@ -28,7 +28,7 @@ class ContextManager:
                 self.update_temperature(payload)
             elif topic == settings.SENSOR_LIGHT:
                 self.update_light(payload)
-            elif topic == settings.PARKING:
+            elif topic == settings.SENSOR_PARKING:
                 self.update_parking(payload)    
             elif topic == settings.VEHICLE_ENTRY:
                 self.update_vehicle_entry(payload)

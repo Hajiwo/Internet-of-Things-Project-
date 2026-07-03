@@ -14,6 +14,8 @@ def main() -> None:
     context_manager = ContextManager()
     sensor_topics_list = sensor_topics.get_topics()
 
+    mqtt_client.connect()
+
     for sensor_topic in sensor_topics_list:
         mqtt_client.subscribe(sensor_topic, event_dispatcher.push_event)
   

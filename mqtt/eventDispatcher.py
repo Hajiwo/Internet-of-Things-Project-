@@ -1,8 +1,9 @@
 """Receive sensor messages from MQTT topics."""
 
-from typing import Any
-from ..models.event import MQTTEvent
 import queue
+from typing import Any
+
+from models.event import MQTTEvent
 
 class MQTTEventDispatcher:
     """Handler for processing events from MQTT topics"""

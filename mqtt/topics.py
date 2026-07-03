@@ -7,18 +7,18 @@ class SensorTopics:
     def __init__(self):
         self.SENSOR_TEMPERATURE = settings.SENSOR_TEMPERATURE
         self.SENSOR_LIGHT = settings.SENSOR_LIGHT
-        self.PARKING = settings.PARKING
-        self.VEHICLE_ENTRY = settings.VEHICLE_ENTRY
-        self.VEHICLE_LEAVE = settings.VEHICLE_LEAVE
+        self.SENSOR_PARKING = settings.SENSOR_PARKING
+        self.EVENT_VEHICLE_ENTRY = settings.EVENT_VEHICLE_ENTRY
+        self.EVENT_VEHICLE_LEAVE = settings.EVENT_VEHICLE_LEAVE
 
     def get_topics(self) -> list[str]:
         """Return a list of all sensor topics."""
         return [
             self.SENSOR_TEMPERATURE,
             self.SENSOR_LIGHT,
-            self.PARKING,
-            self.VEHICLE_ENTRY,
-            self.VEHICLE_LEAVE,
+            self.SENSOR_PARKING,
+            self.EVENT_VEHICLE_ENTRY,
+            self.EVENT_VEHICLE_LEAVE,
         ]
 
 class ActuatorTopics:

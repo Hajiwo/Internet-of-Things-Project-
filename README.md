@@ -2,6 +2,63 @@
 
 Smart Garage is a Python project scaffold for MQTT-driven garage automation, planning, and execution.
 
+## The format of MQTT messages
+
+From sensors:
+1. Temperature:
+```json 
+{
+    sequence: ,
+    temperature: "38"
+}
+```
+
+2. Light: 
+```json
+{
+    sequence: ,
+    lux: "300"
+}
+```
+
+3. Parking: 
+```json
+{
+    license: "BN9123"
+    position: 0
+    enter_time: TIME
+}
+
+{
+    position: 0
+}
+```
+
+## Design of the context:
+
+```json
+//context:
+
+//temperature part:
+temperature: int
+fan: bool (on/off)
+
+//lightening part:
+lux: int
+light: bool (on/off)
+
+//parking part:
+Position: list: class parkingVehicle (size = 4, index is the position number)
+
+class paringVehicle{
+    license: str, size = 7 for example
+    enter_time: TIME
+}
+
+```
+
+
+
 ## Structure
 
 - `main.py`: application entry point

@@ -159,6 +159,9 @@ garage/camera/vehicle_exit
 }
 ```
 
+# 6. Actuator Fan
+Topic 
+
 ## Context Update
 
 ```
