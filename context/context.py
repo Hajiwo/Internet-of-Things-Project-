@@ -18,3 +18,5 @@ class Context:
     light: bool = False
     entrance_gate: bool = False
     exit_gate: bool = False
+
+    garage_size: int = settings.parking_size
