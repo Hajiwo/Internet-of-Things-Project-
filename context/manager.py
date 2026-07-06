@@ -52,18 +52,16 @@ class ContextManager:
 
     def update_vehicle_entry(self, payload: dict) -> None:
         """Update vehicle entry in context. """
-        license_plate = payload.get("license_plate", payload.get("license"))
+        license_plate = payload.get("license_plate") or payload.get("license")
         enter_time = payload.get("enter_time")
         if license_plate and enter_time:
             self.context.current_vehicles[license_plate] = enter_time
-            self.context.vehicle_waiting_to_enter = True
 
     def update_vehicle_leave(self, payload: dict) -> None:
         """update vehicle leave in context"""
-        license_plate = payload.get("license_plate", payload.get("license"))
+        license_plate = payload.get("license_plate") or payload.get("license")
         if license_plate in self.context.current_vehicles:
             del self.context.current_vehicles[license_plate]
-            self.context.vehicle_waiting_to_leave = True
         else:
             print(f"Warning: Vehicle with license plate {license_plate} not found in current vehicles.")
             exit(1)  # Exit the program with an error code
@@ -79,5 +77,3 @@ class ContextManager:
         print(f"Light On: {self.context.light}")
         print(f"Entrance Gate Open: {self.context.entrance_gate}")
         print(f"Exit Gate Open: {self.context.exit_gate}")
-        print(f"Vehicle Waiting To Enter: {self.context.vehicle_waiting_to_enter}")
-        print(f"Vehicle Waiting To Leave: {self.context.vehicle_waiting_to_leave}")
