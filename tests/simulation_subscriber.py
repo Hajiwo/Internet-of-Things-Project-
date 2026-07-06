@@ -50,6 +50,14 @@ class BrokerSimulatorClient:
         if receipt.get("type") == "subscribed":
             print(f"[subscriber] subscribed to {topic}")
 
+    def publish(self, topic: str, payload: Any) -> dict[str, Any]:
+        """Publish actuator commands back to the simulator broker."""
+
+        if self.socket is None or self.file is None:
+            raise RuntimeError("subscriber is not connected")
+        self._send({"type": "publish", "topic": topic, "payload": payload})
+        return json.loads(self.file.readline())
+
     def listen(self, callback: Any) -> None:
         if self.file is None:
             raise RuntimeError("subscriber is not connected")
