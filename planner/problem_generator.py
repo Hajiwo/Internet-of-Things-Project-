@@ -83,3 +83,4 @@ class ProblemGenerator:
 
     def _format_predicates(self, predicates: Iterable[str]) -> str:
         return "\n".join(f"    ({predicate})" for predicate in predicates)
+

@@ -2,8 +2,7 @@
 
 import re
 
-from .actions import AVAILABLE_ACTIONS
-from .actions import PlannerAction
+from .actions import AVAILABLE_ACTIONS, PlannerAction
 
 _ACTION_RE = re.compile(r"^\s*(?:\d+:\s*)?\((?P<body>[^)]+)\)")
 
@@ -33,3 +32,4 @@ def _parse_plan_line(line: str) -> PlannerAction | None:
         return None
 
     return PlannerAction(name=tokens[0], parameters=tuple(tokens[1:]))
+

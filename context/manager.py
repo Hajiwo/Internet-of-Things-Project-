@@ -20,7 +20,7 @@ class ContextManager:
         """Handle event and filter out duplicates based on sequence number."""
         topic = event.topic
         payload = event.payload
-        sequence_number = payload.get("sequence_number", 0)
+        sequence_number = payload.get("sequence_number", payload.get("sequence", 0))
 
         if sequence_number > self.msg_sequences.get(topic, 0):
             self.msg_sequences[topic] = sequence_number
@@ -30,9 +30,9 @@ class ContextManager:
                 self.update_light(payload)
             elif topic == settings.SENSOR_PARKING:
                 self.update_parking(payload)    
-            elif topic == settings.VEHICLE_ENTRY:
+            elif topic == settings.EVENT_VEHICLE_ENTRY:
                 self.update_vehicle_entry(payload)
-            elif topic == settings.VEHICLE_LEAVE:
+            elif topic == settings.EVENT_VEHICLE_LEAVE:
                 self.update_vehicle_leave(payload)
 
     def update_temperature(self, payload: dict) -> None:
@@ -52,16 +52,18 @@ class ContextManager:
 
     def update_vehicle_entry(self, payload: dict) -> None:
         """Update vehicle entry in context. """
-        license_plate = payload.get("license_plate")
+        license_plate = payload.get("license_plate", payload.get("license"))
         enter_time = payload.get("enter_time")
         if license_plate and enter_time:
             self.context.current_vehicles[license_plate] = enter_time
+            self.context.vehicle_waiting_to_enter = True
 
     def update_vehicle_leave(self, payload: dict) -> None:
         """update vehicle leave in context"""
-        license_plate = payload.get("license_plate")
+        license_plate = payload.get("license_plate", payload.get("license"))
         if license_plate in self.context.current_vehicles:
             del self.context.current_vehicles[license_plate]
+            self.context.vehicle_waiting_to_leave = True
         else:
             print(f"Warning: Vehicle with license plate {license_plate} not found in current vehicles.")
             exit(1)  # Exit the program with an error code
@@ -77,3 +79,5 @@ class ContextManager:
         print(f"Light On: {self.context.light}")
         print(f"Entrance Gate Open: {self.context.entrance_gate}")
         print(f"Exit Gate Open: {self.context.exit_gate}")
+        print(f"Vehicle Waiting To Enter: {self.context.vehicle_waiting_to_enter}")
+        print(f"Vehicle Waiting To Leave: {self.context.vehicle_waiting_to_leave}")

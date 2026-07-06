@@ -12,8 +12,12 @@ class PlannerAction:
 
 
 AVAILABLE_ACTIONS = (
-    "open_door",
-    "close_door",
-    "turn_on_light",
-    "turn_off_light",
+    "turn-on-fan",
+    "turn-off-fan",
+    "turn-on-light",
+    "turn-off-light",
+    "open-entrance-gate",
+    "close-entrance-gate",
+    "open-exit-gate",
+    "close-exit-gate",
 )

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class FastDownward:
-    """Store planner binary configuration and execution helpers."""
+    """Run Fast Downward against generated Smart Garage PDDL."""
 
     def __init__(self, executable_path: str) -> None:
         self.executable_path = Path(executable_path)
@@ -21,3 +21,4 @@ class FastDownward:
             text=True,
         )
         return result.stdout
+

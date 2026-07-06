@@ -29,5 +29,7 @@ class Settings:
     ACTUATOR_EXIT_GATE: str = "garage/actuator/exit"
 
     parking_size: int = 3
+    temperature_high_threshold: float = 30.0
+    lux_dark_threshold: float = 100.0
 
 settings = Settings()
