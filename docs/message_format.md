@@ -1,40 +1,125 @@
 # Smart Garage MQTT Message Format
 
-This document explains how the hardware side should interact with the backend through MQTT.
+This document is the hardware-facing MQTT contract for the Smart Garage backend.
+It is based on the current project implementation, especially:
 
-The normal data flow is:
+- [config/settings.py](../config/settings.py)
+- [mqtt/topics.py](../mqtt/topics.py)
+- [context/manager.py](../context/manager.py)
+- [planner/problem_generator.py](../planner/problem_generator.py)
+- [executor/executor.py](../executor/executor.py)
+- [tests/simulation_subscriber.py](../tests/simulation_subscriber.py)
+
+The hardware side should publish sensor/event messages to the backend and subscribe
+to actuator command topics published by the backend.
 
 ```text
-sensor message -> backend context -> AI planning -> actuator command
+sensor/event MQTT message
+  -> ContextManager updates backend Context
+  -> AI planner creates actuator actions
+  -> Executor converts actions to MQTT commands
+  -> hardware receives actuator command
 ```
-
-The hardware side should publish sensor messages to `garage/sensor/...` topics and subscribe to actuator command topics under `garage/actuator/...`.
 
 ---
 
-## General Rules
+## 1. General Rules
 
-Sensor messages are JSON objects. Each sensor topic has its own independent sequence number.
+### Transport
 
-Use `sequence_number` as the preferred field name. The backend also accepts `sequence` for compatibility.
+The real backend uses MQTT through `paho-mqtt`.
+
+Default MQTT settings:
+
+| Setting | Value |
+|---|---|
+| Broker host | `localhost` |
+| Broker port | `1883` |
+| Backend client id | `backend` |
+| Raspberry Pi client id | `raspberrypi` |
+| QoS | `1` |
+
+The simulator uses a local JSON-lines TCP broker on:
+
+| Setting | Value |
+|---|---|
+| Host | `127.0.0.1` |
+| Port | `18830` |
+
+### Message Encoding
+
+Sensor/event messages sent to the backend must be JSON objects.
 
 Example:
 
 ```json
 {
+  "sequence_number": 1,
+  "temperature": 35.0
+}
+```
+
+Actuator commands sent by the backend are string command values:
+
+```json
+"on"
+```
+
+```json
+"open"
+```
+
+In real MQTT, the backend JSON-encodes the command value before publishing, so the
+wire payload is a JSON string. In the simulator, the actuator monitor prints the
+raw command value, for example `on` or `open`.
+
+### Sequence Number
+
+Every sensor/event topic has an independent sequence number. The backend processes
+a message only when its sequence number is larger than the previous sequence number
+seen on the same topic.
+
+Preferred field:
+
+```json
+{
   "sequence_number": 1
 }
 ```
 
-The backend ignores duplicated or older messages. For each topic, only messages with a larger sequence number than the previous message are processed.
+Compatibility field also accepted:
 
-MQTT payloads should be UTF-8 JSON.
+```json
+{
+  "sequence": 1
+}
+```
+
+Important:
+
+- Start at `1` or higher. A missing sequence number defaults to `0`, so the first message may be ignored.
+- Increase the sequence number separately for each topic.
+- Re-sending the same sequence number will be treated as a duplicate and ignored.
 
 ---
 
-## Sensor Messages
+## 2. Backend Input Topics
 
-### 1. Temperature Sensor
+The backend subscribes to these five topics:
+
+| Topic | Source | Purpose |
+|---|---|---|
+| `garage/sensor/temperature` | Temperature sensor | Update garage temperature |
+| `garage/sensor/light` | Light sensor | Update garage lux level |
+| `garage/sensor/parking` | Parking sensors | Update parking occupancy |
+| `garage/camera/vehicle_entry` | Camera/license recognition software | Vehicle wants to enter |
+| `garage/camera/vehicle_exit` | Camera/license recognition software | Vehicle wants to leave |
+
+---
+
+## 3. Sensor And Event Messages
+
+### 3.1 Temperature Sensor
 
 Topic:
 
@@ -42,40 +127,54 @@ Topic:
 garage/sensor/temperature
 ```
 
-Payload format:
+Payload:
 
 ```json
 {
-  "sequence_number": 15,
+  "sequence_number": 1,
   "temperature": 35.0
 }
 ```
 
 Fields:
 
-| Field | Type | Required | Meaning |
+| Field | Type | Required | Description |
 |---|---:|---:|---|
-| `sequence_number` | int | yes | Message order for this topic |
+| `sequence_number` | int | yes | Sequence number for this topic |
 | `temperature` | number | yes | Current garage temperature |
 
-Backend usage:
-
-The backend updates `context.temperature`.
-
-What will happen:
-
-If `temperature >= 30.0`, the AI planner will request the fan to turn on. If the fan is already on and `temperature < 30.0`, the planner will request the fan to turn off.
-
-Possible actuator command:
+Backend effect:
 
 ```text
-garage/actuator/fan -> "on"
-garage/actuator/fan -> "off"
+context.temperature = payload["temperature"]
+```
+
+Planning rule:
+
+| Condition | Planner action | Actuator command |
+|---|---|---|
+| `temperature >= 30.0` and fan is off | `turn-on-fan` | `garage/actuator/fan -> "on"` |
+| `temperature < 30.0` and fan is on | `turn-off-fan` | `garage/actuator/fan -> "off"` |
+
+Example:
+
+```json
+{
+  "sequence_number": 10,
+  "temperature": 35.0
+}
+```
+
+Expected backend output:
+
+```text
+Topic: garage/actuator/fan
+Payload: "on"
 ```
 
 ---
 
-### 2. Light Sensor
+### 3.2 Light Sensor
 
 Topic:
 
@@ -83,40 +182,54 @@ Topic:
 garage/sensor/light
 ```
 
-Payload format:
+Payload:
 
 ```json
 {
-  "sequence_number": 21,
+  "sequence_number": 1,
   "lux": 20.0
 }
 ```
 
 Fields:
 
-| Field | Type | Required | Meaning |
+| Field | Type | Required | Description |
 |---|---:|---:|---|
-| `sequence_number` | int | yes | Message order for this topic |
-| `lux` | number | yes | Current light intensity |
+| `sequence_number` | int | yes | Sequence number for this topic |
+| `lux` | number | yes | Current garage light intensity |
 
-Backend usage:
-
-The backend updates `context.lux`.
-
-What will happen:
-
-If `lux <= 100.0`, the AI planner will request the light to turn on. If the light is already on and `lux > 100.0`, the planner will request the light to turn off.
-
-Possible actuator command:
+Backend effect:
 
 ```text
-garage/actuator/light -> "on"
-garage/actuator/light -> "off"
+context.lux = payload["lux"]
+```
+
+Planning rule:
+
+| Condition | Planner action | Actuator command |
+|---|---|---|
+| `lux <= 100.0` and light is off | `turn-on-light` | `garage/actuator/light -> "on"` |
+| `lux > 100.0` and light is on | `turn-off-light` | `garage/actuator/light -> "off"` |
+
+Example:
+
+```json
+{
+  "sequence_number": 8,
+  "lux": 20.0
+}
+```
+
+Expected backend output:
+
+```text
+Topic: garage/actuator/light
+Payload: "on"
 ```
 
 ---
 
-### 3. Parking Occupancy Sensor
+### 3.3 Parking Occupancy Sensor
 
 Topic:
 
@@ -124,21 +237,21 @@ Topic:
 garage/sensor/parking
 ```
 
-Payload format when a parking position becomes occupied:
+Payload when a parking position becomes occupied:
 
 ```json
 {
-  "sequence_number": 8,
+  "sequence_number": 1,
   "position": 2,
   "on_occupy": true
 }
 ```
 
-Payload format when a parking position becomes free:
+Payload when a parking position becomes free:
 
 ```json
 {
-  "sequence_number": 9,
+  "sequence_number": 2,
   "position": 2,
   "on_occupy": false
 }
@@ -146,29 +259,45 @@ Payload format when a parking position becomes free:
 
 Fields:
 
-| Field | Type | Required | Meaning |
+| Field | Type | Required | Description |
 |---|---:|---:|---|
-| `sequence_number` | int | yes | Message order for this topic |
-| `position` | int | yes | Parking position index, starting from `0` |
+| `sequence_number` | int | yes | Sequence number for this topic |
+| `position` | int | yes | Parking position index |
 | `on_occupy` | bool | yes | `true` means occupied, `false` means free |
 
-Backend usage:
+Current parking configuration:
 
-The backend updates `context.positions_occupied[position]`.
+```text
+parking_size = 3
+valid positions = 0, 1, 2
+```
 
-What will happen:
+Backend effect:
 
-The planner uses parking occupancy to decide whether the garage is full. If every position is occupied, the entrance gate will not be opened for a new vehicle.
+```text
+context.positions_occupied[position] = payload["on_occupy"]
+```
 
-Possible actuator command:
+Validation behavior:
 
-This message does not directly control one actuator, but it can block an entrance gate open command when the garage is full.
+- If `position` is outside `0 <= position < parking_size`, the backend ignores the parking update.
+- `on_occupy` should be a real JSON boolean, not a string.
+
+Planning rule:
+
+Parking occupancy is used to decide whether the garage is full.
+
+| Condition | Planner behavior |
+|---|---|
+| All parking positions are occupied | New vehicle entry will not open the entrance gate |
+| At least one position is free | A vehicle entry event can open the entrance gate |
+
+Parking messages usually do not directly create an actuator command by themselves.
+They change whether later vehicle-entry events are allowed to open the entrance gate.
 
 ---
 
-### 4. Vehicle Entry Event
-
-This message is usually generated by the camera or license plate recognition software, not by a simple sensor.
+### 3.4 Vehicle Entry Event
 
 Topic:
 
@@ -176,47 +305,60 @@ Topic:
 garage/camera/vehicle_entry
 ```
 
-Payload format:
+Payload:
 
 ```json
 {
-  "sequence_number": 30,
+  "sequence_number": 1,
   "license_plate": "BN9123",
   "enter_time": "2026-07-02T15:30:20"
 }
 ```
 
-Compatibility:
-
-The backend also accepts `license` instead of `license_plate`.
-
 Fields:
 
-| Field | Type | Required | Meaning |
+| Field | Type | Required | Description |
 |---|---:|---:|---|
-| `sequence_number` | int | yes | Message order for this topic |
+| `sequence_number` | int | yes | Sequence number for this topic |
 | `license_plate` | string | yes | Vehicle license plate |
-| `enter_time` | string | yes | Entry time, ISO format recommended |
+| `enter_time` | string | yes | Vehicle entry time; ISO format is recommended |
 
-Backend usage:
+Compatibility:
 
-The backend records the vehicle in `context.current_vehicles` and sets `context.vehicle_waiting_to_enter = true`.
+The backend also accepts `license` instead of `license_plate`:
 
-What will happen:
+```json
+{
+  "sequence_number": 1,
+  "license": "BN9123",
+  "enter_time": "2026-07-02T15:30:20"
+}
+```
 
-If the garage is not full, the AI planner will request the entrance gate to open.
-
-Possible actuator command:
+Backend effect:
 
 ```text
-garage/actuator/entrance -> "open"
+context.current_vehicles[license_plate] = enter_time
+context.vehicle_waiting_to_enter = true
+```
+
+Planning rule:
+
+| Condition | Planner action | Actuator command |
+|---|---|---|
+| Vehicle waiting to enter and garage is not full | `open-entrance-gate` | `garage/actuator/entrance -> "open"` |
+| Vehicle waiting to enter but garage is full | no entrance-open action | no entrance command |
+
+Expected backend output when space is available:
+
+```text
+Topic: garage/actuator/entrance
+Payload: "open"
 ```
 
 ---
 
-### 5. Vehicle Exit Event
-
-This message is usually generated by the camera or license plate recognition software.
+### 3.5 Vehicle Exit Event
 
 Topic:
 
@@ -224,49 +366,73 @@ Topic:
 garage/camera/vehicle_exit
 ```
 
-Payload format:
+Payload:
 
 ```json
 {
-  "sequence_number": 31,
+  "sequence_number": 1,
   "license_plate": "BN9123"
 }
 ```
 
-Compatibility:
-
-The backend also accepts `license` instead of `license_plate`.
-
 Fields:
 
-| Field | Type | Required | Meaning |
+| Field | Type | Required | Description |
 |---|---:|---:|---|
-| `sequence_number` | int | yes | Message order for this topic |
+| `sequence_number` | int | yes | Sequence number for this topic |
 | `license_plate` | string | yes | Vehicle license plate |
 
-Backend usage:
+Compatibility:
 
-The backend removes the vehicle from `context.current_vehicles` and sets `context.vehicle_waiting_to_leave = true`.
+The backend also accepts `license` instead of `license_plate`:
 
-What will happen:
+```json
+{
+  "sequence_number": 1,
+  "license": "BN9123"
+}
+```
 
-The AI planner will request the exit gate to open.
-
-Possible actuator command:
+Backend effect:
 
 ```text
-garage/actuator/exit -> "open"
+del context.current_vehicles[license_plate]
+context.vehicle_waiting_to_leave = true
+```
+
+Important behavior:
+
+If the license plate is not currently known in `context.current_vehicles`, the
+current backend prints a warning and exits with an error. Hardware/software should
+only publish a vehicle-exit event for a vehicle that has previously entered.
+
+Planning rule:
+
+| Condition | Planner action | Actuator command |
+|---|---|---|
+| Vehicle waiting to leave | `open-exit-gate` | `garage/actuator/exit -> "open"` |
+
+Expected backend output:
+
+```text
+Topic: garage/actuator/exit
+Payload: "open"
 ```
 
 ---
 
-## Actuator Commands
+## 4. Backend Output Topics
 
-Actuator commands are published by the backend. The hardware side should subscribe to these topics and perform the requested action.
+The backend publishes actuator commands to these four topics:
 
-The command payload is a JSON string value, for example `"on"` or `"open"`.
+| Topic | Hardware actuator | Payload values |
+|---|---|---|
+| `garage/actuator/fan` | Fan | `"on"`, `"off"` |
+| `garage/actuator/light` | Light | `"on"`, `"off"` |
+| `garage/actuator/entrance` | Entrance gate | `"open"`, `"close"` |
+| `garage/actuator/exit` | Exit gate | `"open"`, `"close"` |
 
-### 1. Fan Actuator
+### 4.1 Fan Command
 
 Topic:
 
@@ -274,7 +440,7 @@ Topic:
 garage/actuator/fan
 ```
 
-Possible payloads:
+Payloads:
 
 ```json
 "on"
@@ -284,17 +450,21 @@ Possible payloads:
 "off"
 ```
 
-Usage:
+Hardware behavior:
 
-`"on"` means turn the fan on. `"off"` means turn the fan off.
+- `"on"`: turn fan on.
+- `"off"`: turn fan off.
 
-Triggered by:
+Generated from planner actions:
 
-Usually triggered by temperature messages.
+| Planner action | Command |
+|---|---|
+| `turn-on-fan` | `"on"` |
+| `turn-off-fan` | `"off"` |
 
 ---
 
-### 2. Light Actuator
+### 4.2 Light Command
 
 Topic:
 
@@ -302,7 +472,7 @@ Topic:
 garage/actuator/light
 ```
 
-Possible payloads:
+Payloads:
 
 ```json
 "on"
@@ -312,17 +482,21 @@ Possible payloads:
 "off"
 ```
 
-Usage:
+Hardware behavior:
 
-`"on"` means turn the light on. `"off"` means turn the light off.
+- `"on"`: turn light on.
+- `"off"`: turn light off.
 
-Triggered by:
+Generated from planner actions:
 
-Usually triggered by light sensor messages.
+| Planner action | Command |
+|---|---|
+| `turn-on-light` | `"on"` |
+| `turn-off-light` | `"off"` |
 
 ---
 
-### 3. Entrance Gate Actuator
+### 4.3 Entrance Gate Command
 
 Topic:
 
@@ -330,7 +504,7 @@ Topic:
 garage/actuator/entrance
 ```
 
-Possible payloads:
+Payloads:
 
 ```json
 "open"
@@ -340,17 +514,21 @@ Possible payloads:
 "close"
 ```
 
-Usage:
+Hardware behavior:
 
-`"open"` means open the entrance gate. `"close"` means close the entrance gate.
+- `"open"`: open the entrance gate.
+- `"close"`: close the entrance gate.
 
-Triggered by:
+Generated from planner actions:
 
-Usually triggered by a vehicle entry event when the garage is not full.
+| Planner action | Command |
+|---|---|
+| `open-entrance-gate` | `"open"` |
+| `close-entrance-gate` | `"close"` |
 
 ---
 
-### 4. Exit Gate Actuator
+### 4.4 Exit Gate Command
 
 Topic:
 
@@ -358,7 +536,7 @@ Topic:
 garage/actuator/exit
 ```
 
-Possible payloads:
+Payloads:
 
 ```json
 "open"
@@ -368,648 +546,287 @@ Possible payloads:
 "close"
 ```
 
-Usage:
+Hardware behavior:
 
-`"open"` means open the exit gate. `"close"` means close the exit gate.
+- `"open"`: open the exit gate.
+- `"close"`: close the exit gate.
 
-Triggered by:
+Generated from planner actions:
 
-Usually triggered by a vehicle exit event.
+| Planner action | Command |
+|---|---|
+| `open-exit-gate` | `"open"` |
+| `close-exit-gate` | `"close"` |
 
 ---
 
-## Topic Summary
+## 5. Full Interaction Examples
+
+### Example A: Temperature Turns Fan On
+
+Hardware publishes:
+
+```text
+Topic: garage/sensor/temperature
+```
+
+```json
+{
+  "sequence_number": 1,
+  "temperature": 35.0
+}
+```
+
+Backend context update:
+
+```text
+context.temperature = 35.0
+```
+
+Planner action:
+
+```text
+turn-on-fan
+```
+
+Hardware receives:
+
+```text
+Topic: garage/actuator/fan
+Payload: "on"
+```
+
+---
+
+### Example B: Dark Garage Turns Light On
+
+Hardware publishes:
+
+```text
+Topic: garage/sensor/light
+```
+
+```json
+{
+  "sequence_number": 1,
+  "lux": 20.0
+}
+```
+
+Backend context update:
+
+```text
+context.lux = 20.0
+```
+
+Planner action:
+
+```text
+turn-on-light
+```
+
+Hardware receives:
+
+```text
+Topic: garage/actuator/light
+Payload: "on"
+```
+
+---
+
+### Example C: Vehicle Entry Opens Entrance Gate
+
+Hardware/software publishes:
+
+```text
+Topic: garage/camera/vehicle_entry
+```
+
+```json
+{
+  "sequence_number": 1,
+  "license_plate": "BN9123",
+  "enter_time": "2026-07-02T15:30:20"
+}
+```
+
+Backend context update:
+
+```text
+context.current_vehicles["BN9123"] = "2026-07-02T15:30:20"
+context.vehicle_waiting_to_enter = true
+```
+
+Planner action when garage is not full:
+
+```text
+open-entrance-gate
+```
+
+Hardware receives:
+
+```text
+Topic: garage/actuator/entrance
+Payload: "open"
+```
+
+---
+
+### Example D: Full Garage Blocks Entry Gate
+
+Hardware publishes parking occupancy messages:
+
+```json
+{
+  "sequence_number": 1,
+  "position": 0,
+  "on_occupy": true
+}
+```
+
+```json
+{
+  "sequence_number": 2,
+  "position": 1,
+  "on_occupy": true
+}
+```
+
+```json
+{
+  "sequence_number": 3,
+  "position": 2,
+  "on_occupy": true
+}
+```
+
+Backend context:
+
+```text
+context.positions_occupied = [true, true, true]
+garage-full = true
+```
+
+Then a vehicle entry event arrives:
+
+```json
+{
+  "sequence_number": 1,
+  "license_plate": "BN9123",
+  "enter_time": "2026-07-02T15:30:20"
+}
+```
+
+Planner result:
+
+```text
+No open-entrance-gate action, because the garage is full.
+```
+
+---
+
+### Example E: Vehicle Exit Opens Exit Gate
+
+Hardware/software publishes:
+
+```text
+Topic: garage/camera/vehicle_exit
+```
+
+```json
+{
+  "sequence_number": 1,
+  "license_plate": "BN9123"
+}
+```
+
+Backend context update:
+
+```text
+context.current_vehicles removes "BN9123"
+context.vehicle_waiting_to_leave = true
+```
+
+Planner action:
+
+```text
+open-exit-gate
+```
+
+Hardware receives:
+
+```text
+Topic: garage/actuator/exit
+Payload: "open"
+```
+
+---
+
+## 6. Simulator Usage
+
+Use these commands from the project root.
+
+Start the simulator broker:
+
+```bash
+python3 tests/broker_simulator.py
+```
+
+Start the backend simulator:
+
+```bash
+python3 tests/simulation_subscriber.py backend
+```
+
+Start the actuator monitor:
+
+```bash
+python3 tests/simulation_subscriber.py actuator
+```
+
+Start the interactive sensor publisher:
+
+```bash
+python3 tests/simulation_publisher.py
+```
+
+The actuator monitor subscribes to all actuator topics and prints commands published
+by the backend.
+
+---
+
+## 7. Hardware Checklist
+
+Before integrating hardware, confirm these points:
+
+1. Publish sensor/event payloads as JSON objects.
+2. Use `sequence_number` and increase it independently for each topic.
+3. Use JSON numbers for `temperature`, `lux`, and `position`.
+4. Use JSON booleans for `on_occupy`: `true` or `false`.
+5. Subscribe to every actuator topic controlled by the hardware.
+6. Treat actuator payloads as command strings: `"on"`, `"off"`, `"open"`, `"close"`.
+7. Do not publish vehicle-exit events for unknown vehicles.
+8. Use parking positions `0`, `1`, and `2` unless `parking_size` is changed in settings.
+
+---
+
+## 8. Quick Reference
 
 ### Hardware Publishes To Backend
 
-| Topic | Payload | Purpose |
-|---|---|---|
-| `garage/sensor/temperature` | JSON object | Temperature update |
-| `garage/sensor/light` | JSON object | Light intensity update |
-| `garage/sensor/parking` | JSON object | Parking occupancy update |
-| `garage/camera/vehicle_entry` | JSON object | Vehicle entry event |
-| `garage/camera/vehicle_exit` | JSON object | Vehicle exit event |
+| Topic | Required fields |
+|---|---|
+| `garage/sensor/temperature` | `sequence_number`, `temperature` |
+| `garage/sensor/light` | `sequence_number`, `lux` |
+| `garage/sensor/parking` | `sequence_number`, `position`, `on_occupy` |
+| `garage/camera/vehicle_entry` | `sequence_number`, `license_plate`, `enter_time` |
+| `garage/camera/vehicle_exit` | `sequence_number`, `license_plate` |
 
 ### Backend Publishes To Hardware
 
-| Topic | Payload Values | Purpose |
-|---|---|---|
-| `garage/actuator/fan` | `"on"`, `"off"` | Control fan |
-| `garage/actuator/light` | `"on"`, `"off"` | Control light |
-| `garage/actuator/entrance` | `"open"`, `"close"` | Control entrance gate |
-| `garage/actuator/exit` | `"open"`, `"close"` | Control exit gate |
-
----
-
-## Example Interaction
-
-### Example A: Temperature Is High
-
-Hardware publishes:
-
-```text
-Topic: garage/sensor/temperature
-Payload:
-```
-
-```json
-{
-  "sequence_number": 1,
-  "temperature": 35.0
-}
-```
-
-Backend result:
-
-```text
-context.temperature = 35.0
-planner action = turn-on-fan
-```
-
-Hardware receives:
-
-```text
-Topic: garage/actuator/fan
-Payload: "on"
-```
-
-### Example B: Garage Is Dark
-
-Hardware publishes:
-
-```text
-Topic: garage/sensor/light
-Payload:
-```
-
-```json
-{
-  "sequence_number": 1,
-  "lux": 20.0
-}
-```
-
-Backend result:
-
-```text
-context.lux = 20.0
-planner action = turn-on-light
-```
-
-Hardware receives:
-
-```text
-Topic: garage/actuator/light
-Payload: "on"
-```
-
-### Example C: Vehicle Wants To Enter
-
-Camera or recognition software publishes:
-
-```text
-Topic: garage/camera/vehicle_entry
-Payload:
-```
-
-```json
-{
-  "sequence_number": 1,
-  "license_plate": "BN9123",
-  "enter_time": "2026-07-02T15:30:20"
-}
-```
-
-Backend result:
-
-```text
-context.current_vehicles["BN9123"] = "2026-07-02T15:30:20"
-context.vehicle_waiting_to_enter = true
-planner action = open-entrance-gate
-```
-
-Hardware receives:
-
-```text
-Topic: garage/actuator/entrance
-Payload: "open"
-```
-
----
-
-## Important Notes For Hardware
-
-1. Always increase `sequence_number` for each topic.
-2. Send boolean values as real JSON booleans: `true` or `false`, not strings.
-3. Send numeric values as JSON numbers, not strings.
-4. Subscribe to all actuator topics that your hardware controls.
-5. If the backend does not react, first check whether the sequence number is larger than the previous message on that topic.
-
----
-
-# 智能车库 MQTT 消息格式
-
-本文档说明硬件端如何通过 MQTT 与后端交互。
-
-正常数据流是：
-
-```text
-传感器消息 -> 后端上下文 -> AI 规划 -> 执行器命令
-```
-
-硬件端需要向 `garage/sensor/...` 主题发布传感器消息，并订阅 `garage/actuator/...` 下的执行器命令主题。
-
----
-
-## 通用规则
-
-传感器消息是 JSON 对象。每一个传感器主题都有自己独立的序列号。
-
-推荐使用 `sequence_number` 字段。为了兼容，后端也接受 `sequence` 字段。
-
-示例：
-
-```json
-{
-  "sequence_number": 1
-}
-```
-
-后端会忽略重复或更旧的消息。对于每个 topic，只有序列号比上一次更大的消息才会被处理。
-
-MQTT payload 应该是 UTF-8 JSON。
-
----
-
-## 传感器消息
-
-### 1. 温度传感器
-
-主题：
-
-```text
-garage/sensor/temperature
-```
-
-消息格式：
-
-```json
-{
-  "sequence_number": 15,
-  "temperature": 35.0
-}
-```
-
-字段：
-
-| 字段 | 类型 | 必填 | 含义 |
-|---|---:|---:|---|
-| `sequence_number` | int | 是 | 此 topic 的消息顺序 |
-| `temperature` | number | 是 | 当前车库温度 |
-
-后端用途：
-
-后端会更新 `context.temperature`。
-
-会发生什么：
-
-如果 `temperature >= 30.0`，AI planner 会要求打开风扇。如果风扇已经打开，并且 `temperature < 30.0`，planner 会要求关闭风扇。
-
-可能产生的执行器命令：
-
-```text
-garage/actuator/fan -> "on"
-garage/actuator/fan -> "off"
-```
-
----
-
-### 2. 光照传感器
-
-主题：
-
-```text
-garage/sensor/light
-```
-
-消息格式：
-
-```json
-{
-  "sequence_number": 21,
-  "lux": 20.0
-}
-```
-
-字段：
-
-| 字段 | 类型 | 必填 | 含义 |
-|---|---:|---:|---|
-| `sequence_number` | int | 是 | 此 topic 的消息顺序 |
-| `lux` | number | 是 | 当前光照强度 |
-
-后端用途：
-
-后端会更新 `context.lux`。
-
-会发生什么：
-
-如果 `lux <= 100.0`，AI planner 会要求打开灯。如果灯已经打开，并且 `lux > 100.0`，planner 会要求关闭灯。
-
-可能产生的执行器命令：
-
-```text
-garage/actuator/light -> "on"
-garage/actuator/light -> "off"
-```
-
----
-
-### 3. 车位占用传感器
-
-主题：
-
-```text
-garage/sensor/parking
-```
-
-车位被占用时的消息格式：
-
-```json
-{
-  "sequence_number": 8,
-  "position": 2,
-  "on_occupy": true
-}
-```
-
-车位空出时的消息格式：
-
-```json
-{
-  "sequence_number": 9,
-  "position": 2,
-  "on_occupy": false
-}
-```
-
-字段：
-
-| 字段 | 类型 | 必填 | 含义 |
-|---|---:|---:|---|
-| `sequence_number` | int | 是 | 此 topic 的消息顺序 |
-| `position` | int | 是 | 车位编号，从 `0` 开始 |
-| `on_occupy` | bool | 是 | `true` 表示占用，`false` 表示空闲 |
-
-后端用途：
-
-后端会更新 `context.positions_occupied[position]`。
-
-会发生什么：
-
-Planner 会使用车位占用状态判断车库是否已满。如果所有车位都被占用，入口门不会为新车辆打开。
-
-可能产生的执行器命令：
-
-这类消息不会直接控制某一个执行器，但当车库已满时，它会阻止入口门打开。
-
----
-
-### 4. 车辆进入事件
-
-该消息通常由摄像头或车牌识别软件生成，不是普通传感器直接生成。
-
-主题：
-
-```text
-garage/camera/vehicle_entry
-```
-
-消息格式：
-
-```json
-{
-  "sequence_number": 30,
-  "license_plate": "BN9123",
-  "enter_time": "2026-07-02T15:30:20"
-}
-```
-
-兼容说明：
-
-后端也接受使用 `license` 代替 `license_plate`。
-
-字段：
-
-| 字段 | 类型 | 必填 | 含义 |
-|---|---:|---:|---|
-| `sequence_number` | int | 是 | 此 topic 的消息顺序 |
-| `license_plate` | string | 是 | 车牌号 |
-| `enter_time` | string | 是 | 进入时间，推荐 ISO 格式 |
-
-后端用途：
-
-后端会把车辆记录到 `context.current_vehicles`，并设置 `context.vehicle_waiting_to_enter = true`。
-
-会发生什么：
-
-如果车库未满，AI planner 会要求打开入口门。
-
-可能产生的执行器命令：
-
-```text
-garage/actuator/entrance -> "open"
-```
-
----
-
-### 5. 车辆离开事件
-
-该消息通常由摄像头或车牌识别软件生成。
-
-主题：
-
-```text
-garage/camera/vehicle_exit
-```
-
-消息格式：
-
-```json
-{
-  "sequence_number": 31,
-  "license_plate": "BN9123"
-}
-```
-
-兼容说明：
-
-后端也接受使用 `license` 代替 `license_plate`。
-
-字段：
-
-| 字段 | 类型 | 必填 | 含义 |
-|---|---:|---:|---|
-| `sequence_number` | int | 是 | 此 topic 的消息顺序 |
-| `license_plate` | string | 是 | 车牌号 |
-
-后端用途：
-
-后端会从 `context.current_vehicles` 中移除该车辆，并设置 `context.vehicle_waiting_to_leave = true`。
-
-会发生什么：
-
-AI planner 会要求打开出口门。
-
-可能产生的执行器命令：
-
-```text
-garage/actuator/exit -> "open"
-```
-
----
-
-## 执行器命令
-
-执行器命令由后端发布。硬件端需要订阅这些 topic，并执行对应动作。
-
-命令 payload 是一个 JSON 字符串值，例如 `"on"` 或 `"open"`。
-
-### 1. 风扇执行器
-
-主题：
-
-```text
-garage/actuator/fan
-```
-
-可能的 payload：
-
-```json
-"on"
-```
-
-```json
-"off"
-```
-
-用途：
-
-`"on"` 表示打开风扇。`"off"` 表示关闭风扇。
-
-触发原因：
-
-通常由温度消息触发。
-
----
-
-### 2. 灯光执行器
-
-主题：
-
-```text
-garage/actuator/light
-```
-
-可能的 payload：
-
-```json
-"on"
-```
-
-```json
-"off"
-```
-
-用途：
-
-`"on"` 表示打开灯。`"off"` 表示关闭灯。
-
-触发原因：
-
-通常由光照传感器消息触发。
-
----
-
-### 3. 入口门执行器
-
-主题：
-
-```text
-garage/actuator/entrance
-```
-
-可能的 payload：
-
-```json
-"open"
-```
-
-```json
-"close"
-```
-
-用途：
-
-`"open"` 表示打开入口门。`"close"` 表示关闭入口门。
-
-触发原因：
-
-通常由车辆进入事件触发，前提是车库未满。
-
----
-
-### 4. 出口门执行器
-
-主题：
-
-```text
-garage/actuator/exit
-```
-
-可能的 payload：
-
-```json
-"open"
-```
-
-```json
-"close"
-```
-
-用途：
-
-`"open"` 表示打开出口门。`"close"` 表示关闭出口门。
-
-触发原因：
-
-通常由车辆离开事件触发。
-
----
-
-## Topic 总结
-
-### 硬件发布给后端
-
-| Topic | Payload | 用途 |
-|---|---|---|
-| `garage/sensor/temperature` | JSON object | 温度更新 |
-| `garage/sensor/light` | JSON object | 光照强度更新 |
-| `garage/sensor/parking` | JSON object | 车位占用更新 |
-| `garage/camera/vehicle_entry` | JSON object | 车辆进入事件 |
-| `garage/camera/vehicle_exit` | JSON object | 车辆离开事件 |
-
-### 后端发布给硬件
-
-| Topic | Payload 值 | 用途 |
-|---|---|---|
-| `garage/actuator/fan` | `"on"`, `"off"` | 控制风扇 |
-| `garage/actuator/light` | `"on"`, `"off"` | 控制灯 |
-| `garage/actuator/entrance` | `"open"`, `"close"` | 控制入口门 |
-| `garage/actuator/exit` | `"open"`, `"close"` | 控制出口门 |
-
----
-
-## 交互示例
-
-### 示例 A：温度过高
-
-硬件发布：
-
-```text
-Topic: garage/sensor/temperature
-Payload:
-```
-
-```json
-{
-  "sequence_number": 1,
-  "temperature": 35.0
-}
-```
-
-后端结果：
-
-```text
-context.temperature = 35.0
-planner action = turn-on-fan
-```
-
-硬件收到：
-
-```text
-Topic: garage/actuator/fan
-Payload: "on"
-```
-
-### 示例 B：车库光线较暗
-
-硬件发布：
-
-```text
-Topic: garage/sensor/light
-Payload:
-```
-
-```json
-{
-  "sequence_number": 1,
-  "lux": 20.0
-}
-```
-
-后端结果：
-
-```text
-context.lux = 20.0
-planner action = turn-on-light
-```
-
-硬件收到：
-
-```text
-Topic: garage/actuator/light
-Payload: "on"
-```
-
-### 示例 C：车辆准备进入
-
-摄像头或识别软件发布：
-
-```text
-Topic: garage/camera/vehicle_entry
-Payload:
-```
-
-```json
-{
-  "sequence_number": 1,
-  "license_plate": "BN9123",
-  "enter_time": "2026-07-02T15:30:20"
-}
-```
-
-后端结果：
-
-```text
-context.current_vehicles["BN9123"] = "2026-07-02T15:30:20"
-context.vehicle_waiting_to_enter = true
-planner action = open-entrance-gate
-```
-
-硬件收到：
-
-```text
-Topic: garage/actuator/entrance
-Payload: "open"
-```
-
----
-
-## 硬件端注意事项
-
-1. 每个 topic 的 `sequence_number` 必须递增。
-2. 布尔值请使用真正的 JSON 布尔值：`true` 或 `false`，不要使用字符串。
-3. 数值请使用 JSON number，不要使用字符串。
-4. 硬件需要订阅自己负责控制的所有 actuator topics。
-5. 如果后端没有反应，优先检查该 topic 的 sequence number 是否比上一条消息更大。
+| Topic | Payload values |
+|---|---|
+| `garage/actuator/fan` | `"on"`, `"off"` |
+| `garage/actuator/light` | `"on"`, `"off"` |
+| `garage/actuator/entrance` | `"open"`, `"close"` |
+| `garage/actuator/exit` | `"open"`, `"close"` |
