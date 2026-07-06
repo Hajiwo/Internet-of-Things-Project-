@@ -1,79 +1,202 @@
-# Smart Garage
+# Smart Garage Backend
 
-Smart Garage is a Python project scaffold for MQTT-driven garage automation, planning, and execution.
+Smart Garage Backend is the Python backend for an IoT smart garage course project. It receives MQTT sensor messages, keeps the current garage context, uses AI planning to decide actuator actions, and publishes MQTT commands for the hardware side.
 
-## The format of MQTT messages
+The current backend is focused on simulation and planning. It does not require a Raspberry Pi to run the backend tests.
 
-From sensors:
-1. Temperature:
-```json 
-{
-    sequence: ,
-    temperature: "38"
-}
+## A. Project Abstraction
+
+The backend is organized around one main idea:
+
+```text
+sensor message -> context update -> AI planning -> actuator command
 ```
 
-2. Light: 
+The hardware side publishes sensor data such as temperature, lux, parking occupancy, vehicle entry, and vehicle exit. The backend converts those messages into a `Context`, generates a PDDL planning problem, parses the resulting plan, and sends commands to actuators.
+
+Main responsibilities:
+
+- MQTT layer receives sensor events and publishes actuator commands.
+- Context layer stores the current garage state.
+- Planner layer generates `problem.pddl`, runs or simulates planning, and returns ordered actions.
+- Executor layer converts planner actions into actuator MQTT commands.
+- Simulator layer tests the full flow without physical hardware.
+
+Current planning decisions:
+
+- High temperature turns the fan on.
+- Low lux turns the light on.
+- Vehicle entry opens the entrance gate when the garage is not full.
+- Vehicle exit opens the exit gate.
+- Normal conditions can turn off fan/light or close gates when appropriate.
+
+Thresholds are defined in [config/settings.py](config/settings.py):
+
+- `temperature_high_threshold = 30.0`
+- `lux_dark_threshold = 100.0`
+
+## B. How To Run Tests
+
+Install dependencies:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+Run all tests:
+
+```bash
+python3 -m pytest -q
+```
+
+Run only AI planning tests:
+
+```bash
+python3 -m pytest \
+  tests/test_ai_planner.py \
+  tests/test_planner_problem_generator.py \
+  tests/test_planner_parser.py \
+  tests/test_executor.py \
+  -q
+```
+
+Run only the full simulation pipeline test:
+
+```bash
+python3 -m pytest tests/test_simulation_pipeline.py -q
+```
+
+The simulation pipeline test verifies:
+
+```text
+sensor_msg -> backend/context/planner/executor -> actuator_msg
+```
+
+## C. Project Structure, Workflow, Input, And Output
+
+### Project Structure
+
+```text
+.
+├── main.py                         # Application entry point
+├── config/
+│   └── settings.py                 # MQTT topics, thresholds, runtime settings
+├── context/
+│   ├── context.py                  # Garage state model
+│   └── manager.py                  # Updates context from MQTT events
+├── docs/
+│   └── message_format.md           # Hardware-facing MQTT protocol document
+├── executor/
+│   └── executor.py                 # Converts planner actions to actuator commands
+├── models/
+│   ├── command.py                  # Command model
+│   ├── event.py                    # MQTT event model
+│   └── plan.py                     # Plan model
+├── mqtt/
+│   ├── client.py                   # MQTT client wrapper
+│   ├── publisher.py                # Actuator command publisher
+│   └── topics.py                   # Sensor and actuator topic helpers
+├── planner/
+│   ├── actions.py                  # Planner action model and action names
+│   ├── domain.pddl                 # Smart Garage PDDL domain
+│   ├── fast_downward.py            # Fast Downward wrapper
+│   ├── parser.py                   # Planner output parser
+│   ├── planner.py                  # AIPlanner orchestration
+│   └── problem_generator.py        # Context to PDDL problem generator
+├── tests/
+│   ├── broker_simulator.py         # Local JSON-lines broker simulator
+│   ├── simulation_publisher.py     # Interactive sensor publisher simulator
+│   ├── simulation_subscriber.py    # Backend simulator and actuator monitor
+│   └── test_*.py                   # Unit and integration tests
+└── requirements.txt
+```
+
+### Backend Workflow
+
+1. Sensor message arrives from MQTT.
+2. `ContextManager` validates sequence number and updates `Context`.
+3. `ProblemGenerator` converts `Context` into a PDDL problem.
+4. `AIPlanner` runs the planner backend and parses planner output.
+5. `Executor` maps planner actions to MQTT actuator commands.
+6. `Publisher` sends actuator commands to hardware topics.
+
+### Inputs
+
+The backend accepts sensor/event MQTT messages on:
+
+| Topic | Meaning |
+|---|---|
+| `garage/sensor/temperature` | Temperature update |
+| `garage/sensor/light` | Light intensity update |
+| `garage/sensor/parking` | Parking occupancy update |
+| `garage/camera/vehicle_entry` | Vehicle wants to enter |
+| `garage/camera/vehicle_exit` | Vehicle wants to leave |
+
+Example input:
+
 ```json
 {
-    sequence: ,
-    lux: "300"
+  "sequence_number": 1,
+  "lux": 20.0
 }
 ```
 
-3. Parking: 
-```json
-{
-    license: "BN9123"
-    position: 0
-    enter_time: TIME
-}
+### Outputs
 
-{
-    position: 0
-}
+The backend publishes actuator commands on:
+
+| Topic | Payloads | Meaning |
+|---|---|---|
+| `garage/actuator/fan` | `"on"`, `"off"` | Control fan |
+| `garage/actuator/light` | `"on"`, `"off"` | Control light |
+| `garage/actuator/entrance` | `"open"`, `"close"` | Control entrance gate |
+| `garage/actuator/exit` | `"open"`, `"close"` | Control exit gate |
+
+Example output:
+
+```text
+Topic: garage/actuator/light
+Payload: "on"
 ```
 
-## Design of the context:
+### Manual Simulator Workflow
 
-```json
-//context:
+Use four terminals from the project root.
 
-//temperature part:
-temperature: int
-fan: bool (on/off)
+Start the local broker simulator:
 
-//lightening part:
-lux: int
-light: bool (on/off)
-
-//parking part:
-Position: list: class parkingVehicle (size = 4, index is the position number)
-
-class paringVehicle{
-    license: str, size = 7 for example
-    enter_time: TIME
-}
-
+```bash
+python3 tests/broker_simulator.py
 ```
 
+Start the backend simulator:
 
+```bash
+python3 tests/simulation_subscriber.py backend
+```
 
-## Structure
+Start the actuator monitor:
 
-- `main.py`: application entry point
-- `config/`: runtime settings
-- `mqtt/`: MQTT client, topics, publisher, and subscriber helpers
-- `context/`: garage context state and update manager
-- `planner/`: planning inputs, parser, and Fast Downward integration
-- `executor/`: plan execution layer
-- `models/`: shared data models
-- `utils/`: logging and helper utilities
-- `tests/`: automated tests
-- `examples/`: sample publishers and simulation scripts
+```bash
+python3 tests/simulation_subscriber.py actuator
+```
 
-## Next steps
+Start the interactive sensor publisher:
 
-1. Add environment values to `.env`.
-2. Install dependencies from `requirements.txt`.
-3. Implement the MQTT and planning integrations.
+```bash
+python3 tests/simulation_publisher.py
+```
+
+Then choose a message to publish. For example:
+
+- Temperature `35.0` should publish `garage/actuator/fan -> "on"`.
+- Lux `20.0` should publish `garage/actuator/light -> "on"`.
+- Vehicle entry should publish `garage/actuator/entrance -> "open"` if the garage is not full.
+
+## D. MQTT Message Format
+
+The full MQTT protocol for the hardware side is documented here:
+
+[docs/message_format.md](docs/message_format.md)
+
+That document explains every sensor message, every actuator command, example payloads, backend behavior, and Chinese translations for hardware handoff.
