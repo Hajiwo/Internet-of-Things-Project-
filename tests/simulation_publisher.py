@@ -14,8 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from broker_simulator import HOST, PORT, BrokerSimulator
 from mqtt.topics import SensorTopics
+from tests.broker_simulator import HOST, PORT, BrokerSimulator
 
 
 class BrokerSimulatorClient:
@@ -37,7 +37,7 @@ class BrokerSimulatorClient:
         if self.socket is not None:
             self.socket.close()
 
-    def publish(self, topic: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def publish(self, topic: str, payload: Any) -> dict[str, Any]:
         if self.socket is None or self.file is None:
             raise RuntimeError("publisher is not connected")
         self._send({"type": "publish", "topic": topic, "payload": payload})

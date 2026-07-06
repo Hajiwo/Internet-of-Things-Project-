@@ -16,7 +16,7 @@ from typing import Any
 
 HOST = "127.0.0.1"
 PORT = 18830
-MQTTCallback = Callable[[str, dict[str, Any]], None]
+MQTTCallback = Callable[[str, Any], None]
 
 
 class BrokerSimulator:
@@ -31,7 +31,7 @@ class BrokerSimulator:
         self.subscribers[topic].append(callback)
         print(f"[broker] subscriber registered for {topic}")
 
-    def publish(self, topic: str, payload: dict[str, Any]) -> None:
+    def publish(self, topic: str, payload: Any) -> None:
         """Deliver a payload to all subscribers of the topic."""
 
         callbacks = list(self.subscribers.get(topic, []))
@@ -59,7 +59,7 @@ class BrokerState:
             for subscribers in self.subscribers.values():
                 subscribers.discard(handler)
 
-    def publish(self, topic: str, payload: dict[str, Any]) -> int:
+    def publish(self, topic: str, payload: Any) -> int:
         with self.lock:
             subscribers = list(self.subscribers.get(topic, set()))
 
@@ -102,10 +102,7 @@ class BrokerRequestHandler(socketserver.StreamRequestHandler):
             return
 
         if message_type == "publish" and isinstance(topic, str):
-            payload = message.get("payload", {})
-            if not isinstance(payload, dict):
-                self.send_json({"type": "error", "message": "payload must be an object"})
-                return
+            payload = message.get("payload")
             subscriber_count = self.server.state.publish(topic, payload)
             self.send_json({"type": "published", "topic": topic, "subscribers": subscriber_count})
             return
