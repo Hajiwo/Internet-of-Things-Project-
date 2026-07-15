@@ -82,7 +82,7 @@ class SimulationBroker:
         self.topics = SensorTopics().get_topics()
         self.context_manager = ContextManager()
         self.publisher = Publisher(self.broker)  # type: ignore[arg-type]
-        self.executor = Executor(self.publisher)
+        self.executor = Executor(self.publisher, self.context_manager.context)
         self.planner = AIPlanner(
             backend=SimulationPlanningBackend(),
             domain_path=PROJECT_ROOT / "planner" / "domain.pddl",
@@ -121,17 +121,14 @@ class SimulationBroker:
             return
 
         event = MQTTEvent(topic=topic, payload=payload)
-        try:
-            self.context_manager.event_handler(event)
-        except SystemExit:
-            print("[subscriber] context manager rejected the message")
+        if not self.context_manager.event_handler(event):
+            print("[subscriber] context manager ignored the message")
             return
 
         self.context_manager.print_context()
         plan = self.planner.plan(self.context_manager.context)
         self._print_plan(plan)
         self.executor.execute(plan.actions)
-        self._apply_plan_to_context(plan)
 
     def stop(self) -> None:
         """Disconnect the MQTT client."""
@@ -145,31 +142,6 @@ class SimulationBroker:
 
         actions = ", ".join(action.name for action in plan.actions)
         print(f"[backend] planner actions: {actions}")
-
-    def _apply_plan_to_context(self, plan: Plan) -> None:
-        """Apply simulated actuator effects so later plans use fresh state."""
-
-        context = self.context_manager.context
-        for action in plan.actions:
-            if action.name == "turn-on-fan":
-                context.fan = True
-            elif action.name == "turn-off-fan":
-                context.fan = False
-            elif action.name == "turn-on-light":
-                context.light = True
-            elif action.name == "turn-off-light":
-                context.light = False
-            elif action.name == "open-entrance-gate":
-                context.entrance_gate = True
-                context.vehicle_waiting_to_enter = False
-            elif action.name == "close-entrance-gate":
-                context.entrance_gate = False
-            elif action.name == "open-exit-gate":
-                context.exit_gate = True
-                context.vehicle_waiting_to_leave = False
-            elif action.name == "close-exit-gate":
-                context.exit_gate = False
-
 
 class SimulationPlanningBackend:
     """Small deterministic planner backend for local simulator runs.

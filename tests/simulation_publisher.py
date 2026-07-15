@@ -86,7 +86,7 @@ class SimulationPublisher:
         self.publish(self.topics.SENSOR_LIGHT, {"lux": lux})
 
     def publish_parking(self) -> None:
-        position = read_int("Parking position (0-3): ")
+        position = read_int("Parking position (0-2): ")
         occupied = read_bool("Occupied? (y/n): ")
         self.publish(self.topics.PARKING, {"position": position, "on_occupy": occupied})
 

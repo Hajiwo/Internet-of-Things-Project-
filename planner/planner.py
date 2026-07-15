@@ -36,8 +36,8 @@ class AIPlanner:
         """Create a PDDL problem file, run the backend, and return a plan."""
 
         problem_text = self.problem_generator.generate(context)
+        self.problem_path.parent.mkdir(parents=True, exist_ok=True)
         self.problem_path.write_text(problem_text, encoding="utf-8")
 
         output = self.backend.run(str(self.domain_path), str(self.problem_path))
         return Plan(actions=parse_plan_output(output))
-
