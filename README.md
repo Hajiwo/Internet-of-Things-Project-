@@ -49,6 +49,31 @@ Run all tests:
 python3 -m pytest -q
 ```
 
+### Hardware integration runtime
+
+The tracked `.env` is configured for the Raspberry Pi Mosquitto broker at
+`10.81.212.71:1883`. Override `MQTT_BROKER_ADDR` when running against a local
+broker.
+
+Run the MQTT hardware smoke test:
+
+```bash
+python3 main.py --test-connection
+```
+
+The smoke test prints incoming sensor messages and publishes the JSON string
+`"on"` to `garage/actuator/fan` every three seconds.
+
+Run the production sensor-to-planner-to-actuator pipeline:
+
+```bash
+FAST_DOWNWARD_EXECUTABLE=/path/to/fast-downward.py python3 main.py
+```
+
+The production runtime subscribes to all sensor/event topics, updates the
+garage context, generates a PDDL problem, runs Fast Downward, and publishes the
+resulting actuator commands.
+
 Run only AI planning tests:
 
 ```bash
