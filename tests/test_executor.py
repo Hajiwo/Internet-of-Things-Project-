@@ -1,4 +1,5 @@
 from config.settings import settings
+from context.context import Context
 from executor.executor import Executor, command_from_action
 from planner.actions import PlannerAction
 
@@ -52,3 +53,17 @@ def test_command_from_action_rejects_unknown_action() -> None:
         return
 
     raise AssertionError("Expected unknown planner action to raise ValueError")
+
+
+def test_executor_updates_context_after_publishing() -> None:
+    publisher = FakePublisher()
+    context = Context(vehicle_waiting_to_enter=True)
+    executor = Executor(publisher, context)  # type: ignore[arg-type]
+
+    executor.execute(
+        [PlannerAction("turn-on-fan"), PlannerAction("open-entrance-gate")]
+    )
+
+    assert context.fan is True
+    assert context.entrance_gate is True
+    assert context.vehicle_waiting_to_enter is False
