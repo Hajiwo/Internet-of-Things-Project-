@@ -8,7 +8,7 @@ import subprocess
 import threading
 from collections import deque
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from config.settings import settings
 from context.manager import ContextManager
@@ -25,13 +25,29 @@ from software_sensor.camera_sensor import CameraSensor
 logger = logging.getLogger(__name__)
 
 
+class MessageClient(Protocol):
+    host: str
+    port: int
+
+    @property
+    def is_connected(self) -> bool: ...
+
+    def connect(self) -> None: ...
+
+    def disconnect(self) -> None: ...
+
+    def publish(self, topic: str, payload: Any) -> Any: ...
+
+    def subscribe(self, topic: str, callback: Any) -> None: ...
+
+
 class SmartGarageService:
     """Own and coordinate all backend subscriber and publisher components."""
 
     def __init__(
         self,
         planner: AIPlanner,
-        mqtt_client: MQTTClient | None = None,
+        mqtt_client: MessageClient | None = None,
         context_manager: ContextManager | None = None,
     ) -> None:
         self.mqtt_client = mqtt_client or MQTTClient()

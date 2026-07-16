@@ -18,6 +18,12 @@ class Settings:
     backend_client_id: str = os.getenv("MQTT_BACKEND_CLIENT_ID", "backend")
     raspberry_client_id: str = os.getenv("MQTT_RASPBERRY_CLIENT_ID", "raspberrypi")
     keep_alive: int = int(os.getenv("MQTT_KEEP_ALIVE", "60"))
+    runtime_mode: str = os.getenv("SMART_GARAGE_MODE", "simulation").lower()
+    simulator_host: str = os.getenv("SIMULATOR_HOST", "127.0.0.1")
+    simulator_port: int = int(os.getenv("SIMULATOR_PORT", "18830"))
+    simulator_sensor_interval: float = float(
+        os.getenv("SIMULATOR_SENSOR_INTERVAL", "2.0")
+    )
 
     # Planner runtime settings
     fast_downward_executable: str = os.getenv(

@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 venv/
 tests/simulation_problem.pddl
+problem.pddl

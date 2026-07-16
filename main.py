@@ -11,6 +11,7 @@ from typing import Any
 from config.settings import settings
 from dashboard.server import DashboardServer
 from mqtt.client import MQTTClient
+from mqtt.simulation_client import SimulationMQTTClient
 from mqtt.topics import ActuatorTopics, SensorTopics
 from planner.fast_downward import FastDownward
 from planner.planner import AIPlanner
@@ -31,7 +32,7 @@ def main() -> None:
     """Start MQTT subscriber/publisher, planning, camera API, and dashboard."""
 
     planner = _build_planner()
-    backend = SmartGarageService(planner)
+    backend = SmartGarageService(planner, mqtt_client=_build_message_client())
     dashboard = DashboardServer(
         state_provider=backend.snapshot,
         camera_handler=backend.capture_vehicle,
@@ -82,10 +83,27 @@ def _build_planner() -> AIPlanner:
     )
 
 
+def _build_message_client() -> MQTTClient | SimulationMQTTClient:
+    """Select real MQTT hardware or the local Raspberry Pi simulator."""
+
+    if settings.runtime_mode == "simulation":
+        logger.info(
+            "Using Raspberry Pi simulator at %s:%s",
+            settings.simulator_host,
+            settings.simulator_port,
+        )
+        return SimulationMQTTClient(settings.simulator_host, settings.simulator_port)
+    if settings.runtime_mode != "hardware":
+        raise ValueError(
+            "SMART_GARAGE_MODE must be either 'simulation' or 'hardware'"
+        )
+    return MQTTClient()
+
+
 def test_connecting() -> None:
     """Print sensor data and publish a hardware-compatible fan command."""
 
-    mqtt_client = MQTTClient()
+    mqtt_client = _build_message_client()
 
     def show_received_message(topic: str, payload: dict[str, Any]) -> None:
         print(f"[RECEIVED] topic={topic}, payload={payload}", flush=True)
