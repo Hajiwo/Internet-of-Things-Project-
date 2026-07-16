@@ -79,9 +79,10 @@ Then open <http://localhost:8080>. This single command starts:
 - the live hardware-debugging dashboard.
 
 The dashboard shows temperature, light, vehicles, parking occupancy, actuator
-state, received MQTT events, and published commands. Its Enter and Exit buttons
-start license-plate recognition and publish the corresponding camera event.
-Enter is disabled while the garage is full; Exit remains available.
+state, received events, and published commands. Its Enter and Exit buttons
+start license-plate recognition and pass the result directly to the backend
+Context → Planner → Actuator flow. Enter is disabled while the garage is full;
+Exit remains available.
 
 If Fast Downward is installed, configure it with
 

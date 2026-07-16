@@ -21,8 +21,8 @@ Sensors and software events
 传感器和软件事件
           │
           ▼
-Raspberry Pi / camera publishes MQTT JSON messages
-树莓派或摄像头发布 MQTT JSON 消息
+Raspberry Pi publishes MQTT; Camera API creates an internal event
+树莓派发布 MQTT；Camera API 创建内部事件
           │
           ▼
 Backend validates the message and updates Context
@@ -355,19 +355,19 @@ API 和 Dashboard。网页地址为 <http://localhost:8080>。
 | API | Behavior / 行为 |
 |---|---|
 | `GET /api/state` | Return Context, parking, recent input messages, and actuator commands / 返回 Context、停车位、最近输入消息和执行器命令 |
-| `POST /api/camera/enter` | Start OCR and publish `vehicle_entry`; rejected before camera startup when full / 启动 OCR 并发布 `vehicle_entry`；车库满时在启动相机前拒绝 |
-| `POST /api/camera/exit` | Start OCR and publish `vehicle_exit`; available even when full / 启动 OCR 并发布 `vehicle_exit`；车库满时仍可使用 |
+| `POST /api/camera/enter` | Start OCR and send a `vehicle_entry` event directly to the backend; rejected before camera startup when full / 启动 OCR 并把 `vehicle_entry` 事件直接交给 Backend；车库满时在启动相机前拒绝 |
+| `POST /api/camera/exit` | Start OCR and send a `vehicle_exit` event directly to the backend; available even when full / 启动 OCR 并把 `vehicle_exit` 事件直接交给 Backend；车库满时仍可使用 |
 
-Only one camera request can run at a time. A recognized plate is published
-through MQTT and follows the same Context → Planner → Actuator path as other
-sensor events.
+Only one camera request can run at a time. A recognized plate is passed
+directly to the backend and follows the Context → Planner → Actuator path.
+Only the final actuator command is published through MQTT.
 
 Camera capture started through the web API runs without an OpenCV desktop
 preview window. This avoids macOS GUI-thread errors; the operator should hold
 the plate steady while the dashboard displays the processing message.
 
-同一时间只允许一个相机请求。识别出的车牌通过 MQTT 发布，并与其他传感器事件
-一样进入 Context → Planner → Actuator 流程。
+同一时间只允许一个相机请求。识别出的车牌直接交给 Backend，并进入
+Context → Planner → Actuator 流程。只有最终执行器命令通过 MQTT 发布。
 
 通过 Web API 启动的相机采用无 OpenCV 桌面预览窗口的拍摄方式，以避免 macOS
 GUI 线程错误。Dashboard 显示处理中提示时，操作人员应保持车牌稳定。

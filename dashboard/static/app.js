@@ -97,7 +97,7 @@ async function inspect(direction) {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || `Camera request failed (${response.status})`);
     message.className = "api-message success";
-    message.textContent = `Recognized ${body.result.license_plate}. Event published.`;
+    message.textContent = `Recognized ${body.result.license_plate}. Gate action processed.`;
   } catch (error) {
     message.className = "api-message error";
     message.textContent = error.message;

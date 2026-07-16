@@ -1,18 +1,13 @@
-"""Camera API service that publishes recognized vehicle events over MQTT."""
+"""Camera API service that returns recognized vehicle events to the backend."""
 
 from __future__ import annotations
 
 from datetime import datetime
 import threading
-from typing import Any, Callable, Protocol
+from typing import Any, Callable
 
 from config.settings import settings
 from software_sensor.camera_sensor import CameraSensor, CameraSensorError
-
-
-class CameraPublisher(Protocol):
-    def publish(self, topic: str, payload: Any) -> Any:
-        """Publish one camera event."""
 
 
 class CameraRequestError(RuntimeError):
@@ -28,12 +23,10 @@ class CameraService:
 
     def __init__(
         self,
-        publisher: CameraPublisher,
         sequence_provider: Callable[[str], int],
         garage_full_provider: Callable[[], bool],
         sensor_factory: Callable[[], CameraSensor] | None = None,
     ) -> None:
-        self.publisher = publisher
         self.sequence_provider = sequence_provider
         self.garage_full_provider = garage_full_provider
         self.sensor_factory = sensor_factory or CameraSensor
@@ -41,7 +34,7 @@ class CameraService:
         self._published_sequences: dict[str, int] = {}
 
     def capture(self, direction: str) -> dict[str, Any]:
-        """Run OCR and publish a contract-compatible vehicle event."""
+        """Run OCR and return a contract-compatible vehicle event."""
 
         if direction not in {"enter", "exit"}:
             raise CameraRequestError("Direction must be 'enter' or 'exit'.", 400)
@@ -53,7 +46,7 @@ class CameraService:
             self._capture_lock.release()
 
     def _capture_locked(self, direction: str) -> dict[str, Any]:
-        """Capture and publish while exclusive camera access is held."""
+        """Capture and build an event while exclusive camera access is held."""
 
         if direction == "enter" and self.garage_full_provider():
             raise CameraRequestError(
@@ -87,7 +80,6 @@ class CameraService:
         if direction == "enter":
             payload["enter_time"] = datetime.now().isoformat(timespec="seconds")
 
-        self.publisher.publish(topic, payload)
         return {
             "direction": direction,
             "license_plate": license_plate,

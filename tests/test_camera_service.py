@@ -1,18 +1,8 @@
-from typing import Any
-
 import pytest
 
 from config.settings import settings
 from services.camera_service import CameraRequestError, CameraService
 from software_sensor.camera_sensor import CameraSensorError
-
-
-class FakePublisher:
-    def __init__(self) -> None:
-        self.messages: list[tuple[str, dict[str, Any]]] = []
-
-    def publish(self, topic: str, payload: dict[str, Any]) -> None:
-        self.messages.append((topic, payload))
 
 
 class FakeCamera:
@@ -23,10 +13,8 @@ class FakeCamera:
         return self.plate
 
 
-def test_enter_capture_publishes_vehicle_entry_event() -> None:
-    publisher = FakePublisher()
+def test_enter_capture_returns_vehicle_entry_event() -> None:
     service = CameraService(
-        publisher=publisher,
         sequence_provider=lambda topic: 4,
         garage_full_provider=lambda: False,
         sensor_factory=FakeCamera,  # type: ignore[arg-type]
@@ -35,8 +23,8 @@ def test_enter_capture_publishes_vehicle_entry_event() -> None:
     result = service.capture("enter")
 
     assert result["license_plate"] == "BN9123"
-    topic, payload = publisher.messages[0]
-    assert topic == settings.EVENT_VEHICLE_ENTRY
+    assert result["topic"] == settings.EVENT_VEHICLE_ENTRY
+    payload = result["payload"]
     assert payload["sequence_number"] == 4
     assert payload["license_plate"] == "BN9123"
     assert "enter_time" in payload
@@ -51,7 +39,6 @@ def test_full_garage_rejects_enter_before_starting_camera() -> None:
         return FakeCamera()
 
     service = CameraService(
-        publisher=FakePublisher(),
         sequence_provider=lambda topic: 1,
         garage_full_provider=lambda: True,
         sensor_factory=sensor_factory,  # type: ignore[arg-type]
@@ -65,17 +52,15 @@ def test_full_garage_rejects_enter_before_starting_camera() -> None:
 
 
 def test_exit_is_allowed_when_garage_is_full() -> None:
-    publisher = FakePublisher()
     service = CameraService(
-        publisher=publisher,
         sequence_provider=lambda topic: 2,
         garage_full_provider=lambda: True,
         sensor_factory=FakeCamera,  # type: ignore[arg-type]
     )
 
-    service.capture("exit")
+    result = service.capture("exit")
 
-    assert publisher.messages[0][0] == settings.EVENT_VEHICLE_LEAVE
+    assert result["topic"] == settings.EVENT_VEHICLE_LEAVE
 
 
 def test_camera_sensor_error_becomes_readable_api_error() -> None:
@@ -84,7 +69,6 @@ def test_camera_sensor_error_becomes_readable_api_error() -> None:
             raise CameraSensorError("Camera processing failed: preview unavailable")
 
     service = CameraService(
-        publisher=FakePublisher(),
         sequence_provider=lambda topic: 1,
         garage_full_provider=lambda: False,
         sensor_factory=BrokenCamera,  # type: ignore[arg-type]

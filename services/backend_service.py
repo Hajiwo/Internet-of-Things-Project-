@@ -19,7 +19,7 @@ from mqtt.eventDispatcher import MQTTEventDispatcher
 from mqtt.publisher import Publisher
 from mqtt.topics import SensorTopics
 from planner.planner import AIPlanner
-from services.camera_service import CameraService
+from services.camera_service import CameraRequestError, CameraService
 from software_sensor.camera_sensor import CameraSensor
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,6 @@ class SmartGarageService:
         self.executor = Executor(self.publisher, self.context_manager.context)
         self.planner = planner
         self.camera_service = CameraService(
-            publisher=self.mqtt_client,
             sequence_provider=self.context_manager.next_sequence_number,
             garage_full_provider=self.is_garage_full,
             # OpenCV GUI calls such as imshow/waitKey are unsafe in the HTTP
@@ -85,9 +84,19 @@ class SmartGarageService:
         self.mqtt_client.disconnect()
 
     def capture_vehicle(self, direction: str) -> dict[str, Any]:
-        """Delegate an Enter/Exit API request to the camera service."""
+        """Capture a plate and process its event directly in the backend."""
 
-        return self.camera_service.capture(direction)
+        result = self.camera_service.capture(direction)
+        event = MQTTEvent(topic=result["topic"], payload=result["payload"])
+        if not self.process_event(event):
+            detail = self.last_error or "the camera event was rejected"
+            raise CameraRequestError(
+                f"License plate {result['license_plate']} was recognized, "
+                f"but the backend could not complete the gate action: {detail}",
+                503,
+            )
+        result["processed"] = True
+        return result
 
     def is_garage_full(self) -> bool:
         snapshot = self.context_manager.snapshot()
