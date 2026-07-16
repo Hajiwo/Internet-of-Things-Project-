@@ -66,6 +66,14 @@ The smoke test prints incoming sensor messages and publishes the JSON string
 
 Start the complete hardware-debugging system:
 
+Terminal 1 — start the Raspberry Pi simulator:
+
+```bash
+python3 RP_Simulator.py
+```
+
+Terminal 2 — start the backend and dashboard:
+
 ```bash
 python3 main.py
 ```
@@ -92,6 +100,28 @@ FAST_DOWNWARD_EXECUTABLE=/path/to/fast-downward.py python3 main.py
 
 When Fast Downward is unavailable, `main.py` automatically uses the equivalent
 local hardware-debugging rules so hardware testing can continue.
+
+The default `.env` uses `SMART_GARAGE_MODE=simulation`. The simulator includes
+the local message broker, publishes temperature/light/parking data every two
+seconds, and prints fan/light/gate commands from the backend. Its interactive
+console can change sensor values:
+
+```text
+temperature   Set temperature
+light         Set light reading
+parking       Toggle parking position 0-2
+hot-dark      Trigger fan and light
+normal        Restore normal temperature/light
+status        Show all simulated hardware state
+```
+
+For the real Raspberry Pi deployment, change `.env` to:
+
+```dotenv
+SMART_GARAGE_MODE=hardware
+MQTT_BROKER_ADDR=10.81.212.71
+MQTT_BROKER_PORT=1883
+```
 
 Run only AI planning tests:
 

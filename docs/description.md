@@ -379,3 +379,28 @@ GUI 线程错误。Dashboard 显示处理中提示时，操作人员应保持车
 - [Hardware and backend interface / 硬件与 Backend 接口](../hardware_setting.md)
 - [Hardware integration implementation plan / 硬件集成实施计划](../implementation.md)
 - [MQTT message format / MQTT 消息格式](message_format.md)
+
+---
+
+## 10. Software-only Raspberry Pi Simulation / 纯软件树莓派模拟
+
+During software testing, run `python3 RP_Simulator.py` before `python3 main.py`.
+The simulator replaces the Raspberry Pi and Mosquitto dependency with a local
+broker at `127.0.0.1:18830`.
+
+纯软件测试期间，先运行 `python3 RP_Simulator.py`，再运行 `python3 main.py`。
+模拟器使用 `127.0.0.1:18830` 的本地 Broker 替代树莓派和 Mosquitto 依赖。
+
+The simulator publishes temperature, light, and all parking positions every
+two seconds. It subscribes to all actuator topics and prints commands such as
+fan on/off, light on/off, and gate open/close. Sensor values can be changed
+from its interactive console.
+
+模拟器每两秒发布温度、光线以及所有停车位状态，同时订阅全部执行器 Topic，
+并显示风扇开关、灯光开关和门闸开关等指令。传感器值可以通过交互式命令行修改。
+
+Use `SMART_GARAGE_MODE=simulation` for local software testing and
+`SMART_GARAGE_MODE=hardware` when connecting to the physical Raspberry Pi.
+
+本地软件测试使用 `SMART_GARAGE_MODE=simulation`；连接真实树莓派时使用
+`SMART_GARAGE_MODE=hardware`。
