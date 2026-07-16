@@ -343,7 +343,31 @@ I2C LCD 是本地输出设备，而不是由 Backend 控制的执行器。树莓
 
 ---
 
-## 8. Related Documents / 相关文档
+## 8. Hardware Debug Dashboard and Camera API / 硬件调试页面与相机 API
+
+Running `python3 main.py` starts the MQTT subscriber, MQTT publisher, planner,
+camera API, and dashboard together. The dashboard is available at
+<http://localhost:8080>.
+
+运行 `python3 main.py` 会同时启动 MQTT Subscriber、MQTT Publisher、Planner、相机
+API 和 Dashboard。网页地址为 <http://localhost:8080>。
+
+| API | Behavior / 行为 |
+|---|---|
+| `GET /api/state` | Return Context, parking, recent input messages, and actuator commands / 返回 Context、停车位、最近输入消息和执行器命令 |
+| `POST /api/camera/enter` | Start OCR and publish `vehicle_entry`; rejected before camera startup when full / 启动 OCR 并发布 `vehicle_entry`；车库满时在启动相机前拒绝 |
+| `POST /api/camera/exit` | Start OCR and publish `vehicle_exit`; available even when full / 启动 OCR 并发布 `vehicle_exit`；车库满时仍可使用 |
+
+Only one camera request can run at a time. A recognized plate is published
+through MQTT and follows the same Context → Planner → Actuator path as other
+sensor events.
+
+同一时间只允许一个相机请求。识别出的车牌通过 MQTT 发布，并与其他传感器事件
+一样进入 Context → Planner → Actuator 流程。
+
+---
+
+## 9. Related Documents / 相关文档
 
 - [Hardware and backend interface / 硬件与 Backend 接口](../hardware_setting.md)
 - [Hardware integration implementation plan / 硬件集成实施计划](../implementation.md)

@@ -64,15 +64,33 @@ python3 main.py --test-connection
 The smoke test prints incoming sensor messages and publishes the JSON string
 `"on"` to `garage/actuator/fan` every three seconds.
 
-Run the production sensor-to-planner-to-actuator pipeline:
+Start the complete hardware-debugging system:
+
+```bash
+python3 main.py
+```
+
+Then open <http://localhost:8080>. This single command starts:
+
+- the MQTT sensor/event subscriber;
+- the MQTT actuator publisher;
+- context updates and AI planning;
+- the camera Enter/Exit API;
+- the live hardware-debugging dashboard.
+
+The dashboard shows temperature, light, vehicles, parking occupancy, actuator
+state, received MQTT events, and published commands. Its Enter and Exit buttons
+start license-plate recognition and publish the corresponding camera event.
+Enter is disabled while the garage is full; Exit remains available.
+
+If Fast Downward is installed, configure it with
 
 ```bash
 FAST_DOWNWARD_EXECUTABLE=/path/to/fast-downward.py python3 main.py
 ```
 
-The production runtime subscribes to all sensor/event topics, updates the
-garage context, generates a PDDL problem, runs Fast Downward, and publishes the
-resulting actuator commands.
+When Fast Downward is unavailable, `main.py` automatically uses the equivalent
+local hardware-debugging rules so hardware testing can continue.
 
 Run only AI planning tests:
 
