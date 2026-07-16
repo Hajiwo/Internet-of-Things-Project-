@@ -376,8 +376,8 @@ GUI 线程错误。Dashboard 显示处理中提示时，操作人员应保持车
 
 ## 9. Related Documents / 相关文档
 
-- [Hardware and backend interface / 硬件与 Backend 接口](../hardware_setting.md)
-- [Hardware integration implementation plan / 硬件集成实施计划](../implementation.md)
+- [Hardware and backend interface / 硬件与 Backend 接口](hardware_setting.md)
+- [Hardware integration implementation plan / 硬件集成实施计划](implementation.md)
 - [MQTT message format / MQTT 消息格式](message_format.md)
 
 ---

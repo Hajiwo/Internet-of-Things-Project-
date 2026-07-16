@@ -2,7 +2,9 @@
 
 Smart Garage Backend is the Python backend for an IoT smart garage course project. It receives MQTT sensor messages, keeps the current garage context, uses AI planning to decide actuator actions, and publishes MQTT commands for the hardware side.
 
-The current backend is focused on simulation and planning. It does not require a Raspberry Pi to run the backend tests.
+The default software-testing mode uses `RP_Simulator.py`, which replaces the
+Raspberry Pi sensors, actuators, and local broker. A physical Raspberry Pi is
+only required when `SMART_GARAGE_MODE=hardware` is selected.
 
 ## A. Project Abstraction
 
@@ -51,20 +53,11 @@ python3 -m pytest -q
 
 ### Hardware integration runtime
 
-The tracked `.env` is configured for the Raspberry Pi Mosquitto broker at
-`10.81.212.71:1883`. Override `MQTT_BROKER_ADDR` when running against a local
-broker.
+The tracked `.env` defaults to software simulation. The simulator provides a
+local broker at `127.0.0.1:18830`; no Mosquitto installation is required for
+software-only testing.
 
-Run the MQTT hardware smoke test:
-
-```bash
-python3 main.py --test-connection
-```
-
-The smoke test prints incoming sensor messages and publishes the JSON string
-`"on"` to `garage/actuator/fan` every three seconds.
-
-Start the complete hardware-debugging system:
+For a software-only end-to-end run, use two terminals.
 
 Terminal 1 — start the Raspberry Pi simulator:
 
@@ -78,7 +71,16 @@ Terminal 2 — start the backend and dashboard:
 python3 main.py
 ```
 
-Then open <http://localhost:8080>. This single command starts:
+Open <http://localhost:8080>. The dashboard displays sensor data, Context,
+parking occupancy, received events, actuator state, and output commands.
+
+For the low-level MQTT smoke test, use:
+
+```bash
+python3 main.py --test-connection
+```
+
+`main.py` starts:
 
 - the MQTT sensor/event subscriber;
 - the MQTT actuator publisher;
@@ -101,10 +103,9 @@ FAST_DOWNWARD_EXECUTABLE=/path/to/fast-downward.py python3 main.py
 When Fast Downward is unavailable, `main.py` automatically uses the equivalent
 local hardware-debugging rules so hardware testing can continue.
 
-The default `.env` uses `SMART_GARAGE_MODE=simulation`. The simulator includes
-the local message broker, publishes temperature/light/parking data every two
-seconds, and prints fan/light/gate commands from the backend. Its interactive
-console can change sensor values:
+The default `.env` uses `SMART_GARAGE_MODE=simulation`. The simulator publishes
+temperature/light/parking data every two seconds and prints fan/light/gate
+commands from the backend. Its interactive console can change sensor values:
 
 ```text
 temperature   Set temperature
@@ -158,8 +159,15 @@ sensor_msg -> backend/context/planner/executor -> actuator_msg
 ├── context/
 │   ├── context.py                  # Garage state model
 │   └── manager.py                  # Updates context from MQTT events
+├── RP_Simulator.py                  # Local Raspberry Pi and broker simulator
+├── dashboard/
+│   ├── server.py                    # Dashboard HTTP server and JSON API
+│   └── static/                      # Dashboard HTML, CSS, and JavaScript
 ├── docs/
-│   └── message_format.md           # Hardware-facing MQTT protocol document
+│   ├── description.md               # Bilingual system behavior description
+│   ├── hardware_setting.md          # Hardware and MQTT handoff document
+│   ├── implementation.md            # Hardware integration implementation plan
+│   └── message_format.md            # Hardware-facing MQTT protocol document
 ├── executor/
 │   └── executor.py                 # Converts planner actions to actuator commands
 ├── models/
@@ -167,8 +175,9 @@ sensor_msg -> backend/context/planner/executor -> actuator_msg
 │   ├── event.py                    # MQTT event model
 │   └── plan.py                     # Plan model
 ├── mqtt/
-│   ├── client.py                   # MQTT client wrapper
+│   ├── client.py                   # Real MQTT client wrapper
 │   ├── publisher.py                # Actuator command publisher
+│   ├── simulation_client.py        # Local simulator client
 │   └── topics.py                   # Sensor and actuator topic helpers
 ├── planner/
 │   ├── actions.py                  # Planner action model and action names
@@ -182,6 +191,8 @@ sensor_msg -> backend/context/planner/executor -> actuator_msg
 │   ├── simulation_publisher.py     # Interactive sensor publisher simulator
 │   ├── simulation_subscriber.py    # Backend simulator and actuator monitor
 │   └── test_*.py                   # Unit and integration tests
+├── simulator/
+│   └── broker.py                   # Local JSON-lines broker
 └── requirements.txt
 ```
 
@@ -269,8 +280,12 @@ Then choose a message to publish. For example:
 
 ## D. MQTT Message Format
 
-The full MQTT protocol for the hardware side is documented here:
+The project documentation is organized under `docs/`:
 
-[docs/message_format.md](docs/message_format.md)
+- [docs/description.md](docs/description.md): bilingual sensors, Context, and actuator behavior
+- [docs/hardware_setting.md](docs/hardware_setting.md): Raspberry Pi wiring and MQTT handoff
+- [docs/implementation.md](docs/implementation.md): implementation status and remaining hardware work
+- [docs/message_format.md](docs/message_format.md): complete MQTT payload contract
 
-That document explains every sensor message, every actuator command, example payloads, backend behavior, and Chinese translations for hardware handoff.
+These documents explain sensor messages, actuator commands, example payloads,
+backend behavior, simulator usage, and hardware handoff details.
