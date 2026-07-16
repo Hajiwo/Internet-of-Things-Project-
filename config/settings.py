@@ -30,6 +30,10 @@ class Settings:
         os.getenv("PLANNER_PROBLEM_PATH", "problem.pddl")
     )
 
+    # Hardware debugging dashboard
+    dashboard_host: str = os.getenv("DASHBOARD_HOST", "0.0.0.0")
+    dashboard_port: int = int(os.getenv("DASHBOARD_PORT", "8080"))
+
     # Sensor topics
     SENSOR_TEMPERATURE: str = "garage/sensor/temperature"
     SENSOR_LIGHT: str = "garage/sensor/light"

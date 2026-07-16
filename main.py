@@ -2,21 +2,20 @@
 
 import argparse
 import logging
-import subprocess
+import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from config.settings import settings
-from context.manager import ContextManager
-from executor.executor import Executor
-from models.event import MQTTEvent
+from dashboard.server import DashboardServer
 from mqtt.client import MQTTClient
-from mqtt.eventDispatcher import MQTTEventDispatcher
-from mqtt.publisher import Publisher
 from mqtt.topics import ActuatorTopics, SensorTopics
 from planner.fast_downward import FastDownward
 from planner.planner import AIPlanner
+from planner.rule_backend import RulePlanningBackend
+from services.backend_service import SmartGarageService
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger("smart-garage")
@@ -29,69 +28,57 @@ def _project_path(path: Path) -> Path:
 
 
 def main() -> None:
-    """Run the sensor-to-planner-to-actuator production pipeline."""
+    """Start MQTT subscriber/publisher, planning, camera API, and dashboard."""
 
-    mqtt_client = MQTTClient()
-    event_dispatcher = MQTTEventDispatcher()
-    context_manager = ContextManager()
-    publisher = Publisher(mqtt_client)
-    executor = Executor(publisher, context_manager.context)
-    planner = AIPlanner(
-        backend=FastDownward(settings.fast_downward_executable),
-        domain_path=_project_path(settings.planner_domain_path),
-        problem_path=_project_path(settings.planner_problem_path),
+    planner = _build_planner()
+    backend = SmartGarageService(planner)
+    dashboard = DashboardServer(
+        state_provider=backend.snapshot,
+        camera_handler=backend.capture_vehicle,
+        host=settings.dashboard_host,
+        port=settings.dashboard_port,
     )
 
-    logger.info("Starting Smart Garage backend")
+    logger.info("Starting Smart Garage hardware debugging system")
     try:
-        mqtt_client.connect()
-        for topic in SensorTopics().get_topics():
-            mqtt_client.subscribe(topic, event_dispatcher.push_event)
+        dashboard.start()
+        logger.info(
+            "Dashboard: http://localhost:%s", dashboard.address[1]
+        )
+        try:
+            backend.start()
+        except (ConnectionError, OSError, RuntimeError) as error:
+            backend.last_error = str(error)
+            logger.error("MQTT startup failed; dashboard remains available: %s", error)
 
-        logger.info("Backend is ready and waiting for Raspberry Pi messages")
-        while True:
-            event = event_dispatcher.get_event()
-            if not context_manager.event_handler(event):
-                continue
-
-            _log_event(event, context_manager)
-            try:
-                plan = planner.plan(context_manager.context)
-                commands = executor.execute(plan.actions)
-            except (FileNotFoundError, subprocess.CalledProcessError, RuntimeError) as error:
-                logger.error("Planning or command publishing failed: %s", error)
-                continue
-
-            if commands:
-                logger.info(
-                    "Published actuator commands: %s",
-                    ", ".join(
-                        f"{command.topic} -> {command.payload!r}" for command in commands
-                    ),
-                )
-            else:
-                logger.info("Planner returned no actuator changes")
+        logger.info("Press Ctrl+C to stop all services")
+        threading.Event().wait()
     except KeyboardInterrupt:
-        logger.info("Backend stopped by user")
-    except (ConnectionError, OSError, RuntimeError) as error:
-        logger.error("Backend startup failed: %s", error)
+        logger.info("Smart Garage stopped by user")
     finally:
-        mqtt_client.disconnect()
+        backend.stop()
+        dashboard.stop()
 
 
-def _log_event(event: MQTTEvent, context_manager: ContextManager) -> None:
-    context = context_manager.context
-    logger.info("Accepted MQTT event on %s: %s", event.topic, event.payload)
-    logger.info(
-        "Context: temperature=%s, light=%s, parking=%s, fan=%s, light_on=%s, "
-        "entrance_gate=%s, exit_gate=%s",
-        context.temperature,
-        context.lux,
-        context.positions_occupied,
-        context.fan,
-        context.light,
-        context.entrance_gate,
-        context.exit_gate,
+def _build_planner() -> AIPlanner:
+    """Use Fast Downward when installed, otherwise use the debug fallback."""
+
+    executable = settings.fast_downward_executable
+    executable_exists = Path(executable).is_file() or shutil.which(executable) is not None
+    if executable_exists:
+        planner_backend = FastDownward(executable)
+        logger.info("Using Fast Downward planner: %s", executable)
+    else:
+        planner_backend = RulePlanningBackend()
+        logger.warning(
+            "Fast Downward '%s' was not found; using local hardware-debug rules",
+            executable,
+        )
+
+    return AIPlanner(
+        backend=planner_backend,
+        domain_path=_project_path(settings.planner_domain_path),
+        problem_path=_project_path(settings.planner_problem_path),
     )
 
 

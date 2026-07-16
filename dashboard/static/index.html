@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Smart Garage Console</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Raspberry Pi · MQTT · AI Planning</p>
+        <h1>Smart Garage <span>Control Room</span></h1>
+      </div>
+      <div class="connection-pill" id="connection-pill">
+        <span class="status-dot"></span>
+        <span id="connection-text">Connecting…</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="metrics" aria-label="Current garage metrics">
+        <article class="metric-card temperature">
+          <div class="metric-icon">°C</div>
+          <p>Temperature</p>
+          <strong id="temperature">—</strong>
+          <small>Fan threshold: 30 °C</small>
+        </article>
+        <article class="metric-card light-level">
+          <div class="metric-icon">LX</div>
+          <p>Light reading</p>
+          <strong id="lux">—</strong>
+          <small>Dark threshold: 100</small>
+        </article>
+        <article class="metric-card vehicles">
+          <div class="metric-icon">CAR</div>
+          <p>Vehicles inside</p>
+          <strong id="vehicle-count">0</strong>
+          <small id="vehicle-list">No registered vehicles</small>
+        </article>
+        <article class="metric-card spaces">
+          <div class="metric-icon">P</div>
+          <p>Available spaces</p>
+          <strong id="available-spaces">3</strong>
+          <small id="garage-status">Garage available</small>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel parking-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Live occupancy</p>
+              <h2>Parking bays</h2>
+            </div>
+            <span class="count-badge" id="occupancy-count">0 / 3</span>
+          </div>
+          <div class="parking-grid" id="parking-grid"></div>
+        </article>
+
+        <article class="panel inspection-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Camera service</p>
+              <h2>Gate inspection</h2>
+            </div>
+          </div>
+          <p class="panel-copy">
+            Start the camera, recognize a plate, and publish the matching vehicle event.
+          </p>
+          <div class="gate-actions">
+            <button class="action-button enter" id="enter-button">
+              <span>→</span>
+              <span><strong>Enter</strong><small>Entry inspection</small></span>
+            </button>
+            <button class="action-button exit" id="exit-button">
+              <span>←</span>
+              <span><strong>Exit</strong><small>Exit inspection</small></span>
+            </button>
+          </div>
+          <div class="api-message" id="api-message" role="status">Ready for inspection.</div>
+        </article>
+
+        <article class="panel actuator-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Output state</p>
+              <h2>Actuators</h2>
+            </div>
+          </div>
+          <div class="actuator-list" id="actuator-list"></div>
+          <div class="last-command">
+            <span>Last command</span>
+            <code id="last-command">No commands yet</code>
+          </div>
+        </article>
+
+        <article class="panel activity-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Message stream</p>
+              <h2>Recent activity</h2>
+            </div>
+            <span class="live-label"><span></span>LIVE</span>
+          </div>
+          <div class="activity-list" id="activity-list">
+            <p class="empty-state">Waiting for sensor messages…</p>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <span>Smart Garage Hardware Debug Console</span>
+      <span id="broker-address">Broker: —</span>
+    </footer>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -18,6 +18,6 @@ class MQTTEventDispatcher:
         event = MQTTEvent(topic, payload)
         self.__queue.put(event)
 
-    def get_event(self) -> MQTTEvent: 
+    def get_event(self, timeout: float | None = None) -> MQTTEvent:
         """Get the next event from the queue."""
-        return self.__queue.get()
+        return self.__queue.get(timeout=timeout)

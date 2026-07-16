@@ -24,6 +24,12 @@ class MQTTClient:
         self._connected = False
         self._loop_started = False
 
+    @property
+    def is_connected(self) -> bool:
+        """Return whether this wrapper has an active broker connection."""
+
+        return self._connected
+
     def connect(self) -> None:
         """Connect to the configured broker and start MQTT network processing."""
 
