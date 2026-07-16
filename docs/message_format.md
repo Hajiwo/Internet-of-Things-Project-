@@ -8,10 +8,14 @@ It is based on the current project implementation, especially:
 - [context/manager.py](../context/manager.py)
 - [planner/problem_generator.py](../planner/problem_generator.py)
 - [executor/executor.py](../executor/executor.py)
-- [tests/simulation_subscriber.py](../tests/simulation_subscriber.py)
+- [services/backend_service.py](../services/backend_service.py)
+- [RP_Simulator.py](../RP_Simulator.py)
 
-The hardware side should publish sensor/event messages to the backend and subscribe
-to actuator command topics published by the backend.
+An external Raspberry Pi hardware client publishes sensor/event messages to the
+backend and subscribes to actuator command topics. During software-only testing,
+`RP_Simulator.py` provides the local broker, sensor publisher, and actuator
+subscriber. The dashboard camera buttons create events directly inside the
+backend; they do not publish camera input back through MQTT.
 
 ```text
 sensor/event MQTT message
@@ -29,11 +33,11 @@ sensor/event MQTT message
 
 The real backend uses MQTT through `paho-mqtt`.
 
-Default MQTT settings:
+Hardware MQTT settings:
 
 | Setting | Value |
 |---|---|
-| Broker host | `localhost` |
+| Broker host | Configured by `MQTT_BROKER_ADDR` (for example `10.81.212.71`) |
 | Broker port | `1883` |
 | Backend client id | `backend` |
 | Raspberry Pi client id | `raspberrypi` |
@@ -45,6 +49,22 @@ The simulator uses a local JSON-lines TCP broker on:
 |---|---|
 | Host | `127.0.0.1` |
 | Port | `18830` |
+
+The default `.env` selects simulation mode:
+
+```dotenv
+SMART_GARAGE_MODE=simulation
+SIMULATOR_HOST=127.0.0.1
+SIMULATOR_PORT=18830
+```
+
+To connect to the physical Raspberry Pi, use:
+
+```dotenv
+SMART_GARAGE_MODE=hardware
+MQTT_BROKER_ADDR=10.81.212.71
+MQTT_BROKER_PORT=1883
+```
 
 ### Message Encoding
 
@@ -87,19 +107,13 @@ Preferred field:
 }
 ```
 
-Compatibility field also accepted:
-
-```json
-{
-  "sequence": 1
-}
-```
-
 Important:
 
-- Start at `1` or higher. A missing sequence number defaults to `0`, so the first message may be ignored.
+- Start at `1` or higher. A missing or non-integer sequence number is rejected.
 - Increase the sequence number separately for each topic.
 - Re-sending the same sequence number will be treated as a duplicate and ignored.
+- The camera API reserves its own sequence number before sending the event into the
+  backend event-processing path.
 
 ---
 
@@ -403,8 +417,9 @@ context.vehicle_waiting_to_leave = true
 Important behavior:
 
 If the license plate is not currently known in `context.current_vehicles`, the
-current backend prints a warning and exits with an error. Hardware/software should
-only publish a vehicle-exit event for a vehicle that has previously entered.
+backend logs a warning, still marks a vehicle as waiting to leave, and continues
+running. Hardware/software should normally publish an exit event only for a known
+vehicle.
 
 Planning rule:
 
@@ -762,40 +777,48 @@ Payload: "open"
 
 ---
 
-## 6. Simulator Usage
+## 6. Software-only Raspberry Pi Simulator
 
-Use these commands from the project root.
+The supported software-only workflow uses two terminals:
 
-Start the simulator broker:
-
-```bash
-python3 tests/broker_simulator.py
-```
-
-Start the backend simulator:
+Terminal 1:
 
 ```bash
-python3 tests/simulation_subscriber.py backend
+python3 RP_Simulator.py
 ```
 
-Start the actuator monitor:
+Terminal 2:
 
 ```bash
-python3 tests/simulation_subscriber.py actuator
+python3 main.py
 ```
 
-Start the interactive sensor publisher:
+`RP_Simulator.py` starts the local JSON-lines broker at `127.0.0.1:18830`,
+publishes temperature/light/parking messages every two seconds, subscribes to all
+actuator topics, and prints the commands received from the backend. Its console
+commands can change temperature, light, and parking occupancy.
 
-```bash
-python3 tests/simulation_publisher.py
-```
+The older files under `tests/` remain useful for focused simulator tests, but they
+are not required for the standard two-terminal workflow.
 
-The actuator monitor subscribes to all actuator topics and prints commands published
-by the backend.
+## 7. Dashboard Camera API
+
+The web dashboard exposes these endpoints:
+
+| Endpoint | Behavior |
+|---|---|
+| `GET /api/state` | Return Context, parking state, recent events, and actuator commands |
+| `POST /api/camera/enter` | Capture a plate, create a `vehicle_entry` event directly in the backend, then plan/publish the actuator command |
+| `POST /api/camera/exit` | Capture a plate, create a `vehicle_exit` event directly in the backend, then plan/publish the actuator command |
+
+The dashboard camera API does not publish `garage/camera/vehicle_entry` or
+`garage/camera/vehicle_exit` over MQTT. Those topics remain supported for an
+external camera client. For the built-in API, only the final actuator command is
+published over MQTT (or delivered to the simulator broker).
 
 ---
 
-## 7. Hardware Checklist
+## 8. Hardware Checklist
 
 Before integrating hardware, confirm these points:
 
@@ -810,7 +833,7 @@ Before integrating hardware, confirm these points:
 
 ---
 
-## 8. Quick Reference
+## 9. Quick Reference
 
 ### Hardware Publishes To Backend
 

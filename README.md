@@ -244,7 +244,11 @@ Topic: garage/actuator/light
 Payload: "on"
 ```
 
-### Manual Simulator Workflow
+### Legacy focused simulator workflow
+
+The following four-process workflow is retained for focused simulator tests;
+the recommended hardware-debug workflow is the two-terminal `RP_Simulator.py`
+flow above.
 
 Use four terminals from the project root.
 
