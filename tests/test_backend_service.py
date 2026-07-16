@@ -29,6 +29,8 @@ def test_event_updates_dashboard_state_and_publishes_command(tmp_path: Path) -> 
     )
     service = SmartGarageService(planner, mqtt_client=mqtt_client)  # type: ignore[arg-type]
 
+    assert service.camera_service.sensor_factory().show_preview is False
+
     accepted = service.process_event(
         MQTTEvent(
             settings.SENSOR_TEMPERATURE,

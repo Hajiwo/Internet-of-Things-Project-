@@ -34,6 +34,16 @@ class Settings:
     dashboard_host: str = os.getenv("DASHBOARD_HOST", "0.0.0.0")
     dashboard_port: int = int(os.getenv("DASHBOARD_PORT", "8080"))
 
+    # Camera API settings. API capture is intentionally headless because
+    # OpenCV GUI windows cannot run reliably inside an HTTP worker thread.
+    camera_index: int = int(os.getenv("CAMERA_INDEX", "0"))
+    camera_countdown_seconds: float = float(
+        os.getenv("CAMERA_COUNTDOWN_SECONDS", "3.0")
+    )
+    camera_capture_timeout_seconds: float = float(
+        os.getenv("CAMERA_CAPTURE_TIMEOUT_SECONDS", "2.0")
+    )
+
     # Sensor topics
     SENSOR_TEMPERATURE: str = "garage/sensor/temperature"
     SENSOR_LIGHT: str = "garage/sensor/light"

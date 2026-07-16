@@ -20,6 +20,7 @@ from mqtt.publisher import Publisher
 from mqtt.topics import SensorTopics
 from planner.planner import AIPlanner
 from services.camera_service import CameraService
+from software_sensor.camera_sensor import CameraSensor
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ class SmartGarageService:
             publisher=self.mqtt_client,
             sequence_provider=self.context_manager.next_sequence_number,
             garage_full_provider=self.is_garage_full,
+            # OpenCV GUI calls such as imshow/waitKey are unsafe in the HTTP
+            # worker thread on macOS. The web dashboard provides the UI.
+            sensor_factory=lambda: CameraSensor(
+                camera_index=settings.camera_index,
+                countdown_seconds=settings.camera_countdown_seconds,
+                capture_timeout_seconds=settings.camera_capture_timeout_seconds,
+                show_preview=False,
+            ),
         )
         self._events: deque[dict[str, Any]] = deque(maxlen=30)
         self._commands: deque[dict[str, Any]] = deque(maxlen=30)

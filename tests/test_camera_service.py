@@ -4,6 +4,7 @@ import pytest
 
 from config.settings import settings
 from services.camera_service import CameraRequestError, CameraService
+from software_sensor.camera_sensor import CameraSensorError
 
 
 class FakePublisher:
@@ -75,3 +76,22 @@ def test_exit_is_allowed_when_garage_is_full() -> None:
     service.capture("exit")
 
     assert publisher.messages[0][0] == settings.EVENT_VEHICLE_LEAVE
+
+
+def test_camera_sensor_error_becomes_readable_api_error() -> None:
+    class BrokenCamera:
+        def read_license_plate(self) -> str:
+            raise CameraSensorError("Camera processing failed: preview unavailable")
+
+    service = CameraService(
+        publisher=FakePublisher(),
+        sequence_provider=lambda topic: 1,
+        garage_full_provider=lambda: False,
+        sensor_factory=BrokenCamera,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(CameraRequestError) as error:
+        service.capture("enter")
+
+    assert error.value.status_code == 422
+    assert "preview unavailable" in str(error.value)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import time
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -56,8 +57,13 @@ class CameraSensor:
             plate = self.read_license_plate_from_frame(frame, cv2, reader)
             if plate:
                 return plate
+        except CameraSensorError:
+            raise
+        except Exception as error:
+            raise CameraSensorError(f"Camera processing failed: {error}") from error
         finally:
-            camera.release()
+            with suppress(Exception):
+                camera.release()
             if self.show_preview:
                 self._close_preview(cv2)
 
@@ -428,15 +434,18 @@ class CameraSensor:
             return False
 
     def _close_preview(self, cv2: Any) -> None:
+        """Close OpenCV windows without masking a capture/OCR error."""
+
         destroy_window = getattr(cv2, "destroyWindow", None)
-        try:
+        with suppress(Exception):
             if destroy_window is not None:
                 destroy_window(self.preview_window_name)
             else:
                 cv2.destroyAllWindows()
-        finally:
+        with suppress(Exception):
             cv2.destroyAllWindows()
-            for _ in range(5):
+        for _ in range(5):
+            with suppress(Exception):
                 cv2.waitKey(1)
 
     def _show_countdown_preview(self, cv2: Any, frame: Any, remaining: float) -> None:

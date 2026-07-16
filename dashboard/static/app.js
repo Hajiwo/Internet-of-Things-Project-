@@ -91,7 +91,7 @@ async function inspect(direction) {
   $("exit-button").disabled = true;
   const message = $("api-message");
   message.className = "api-message";
-  message.textContent = `Starting ${direction} camera inspection…`;
+  message.textContent = `Starting ${direction} inspection. Hold the license plate steady for 3 seconds…`;
   try {
     const response = await fetch(`/api/camera/${direction}`, { method: "POST" });
     const body = await response.json();

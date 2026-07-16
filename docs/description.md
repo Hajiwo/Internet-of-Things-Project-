@@ -362,8 +362,15 @@ Only one camera request can run at a time. A recognized plate is published
 through MQTT and follows the same Context → Planner → Actuator path as other
 sensor events.
 
+Camera capture started through the web API runs without an OpenCV desktop
+preview window. This avoids macOS GUI-thread errors; the operator should hold
+the plate steady while the dashboard displays the processing message.
+
 同一时间只允许一个相机请求。识别出的车牌通过 MQTT 发布，并与其他传感器事件
 一样进入 Context → Planner → Actuator 流程。
+
+通过 Web API 启动的相机采用无 OpenCV 桌面预览窗口的拍摄方式，以避免 macOS
+GUI 线程错误。Dashboard 显示处理中提示时，操作人员应保持车牌稳定。
 
 ---
 
